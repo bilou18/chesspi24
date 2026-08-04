@@ -161,10 +161,16 @@
         <div class="page game-page">
             <div class="container">
                 <main class="game-container">
-                    <!-- Game info container: mute (left), timer (center), help icons (right) -->
+                    <!-- Game info container: mute + premium (left), timer (center), advice/help icons (right) -->
                     <div class="game-info-container">
-                        <div class="control-icon" id="mute-btn" role="button" tabindex="0" aria-label="Mute sounds">
-                            <i class="fas fa-volume-up" id="mute-icon"></i>
+                        <div class="left-controls">
+                            <div class="control-icon" id="mute-btn" role="button" tabindex="0" aria-label="Mute sounds">
+                                <i class="fas fa-volume-up" id="mute-icon"></i>
+                            </div>
+                            <div class="control-icon premium-crown-btn" id="premium-btn" role="button" tabindex="0" aria-label="Pi Premium subscription">
+                                <i class="fas fa-crown"></i>
+                                <div class="feature-count premium-days-badge" id="premium-days-badge" style="display:none;" title=""></div>
+                            </div>
                         </div>
                         <div class="game-timer">
                             <div class="game-timer-label">Time Left</div>
@@ -176,10 +182,6 @@
                             </div>
                             <div class="control-icon" id="features-btn" role="button" tabindex="0" aria-label="Show help">
                                 <i class="fas fa-circle-info"></i>
-                            </div>
-                            <div class="control-icon premium-crown-btn" id="premium-btn" role="button" tabindex="0" aria-label="Pi Premium subscription">
-                                <i class="fas fa-crown"></i>
-                                <div class="feature-count premium-days-badge" id="premium-days-badge" style="display:none;" title=""></div>
                             </div>
                         </div>
                     </div>
