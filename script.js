@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // here (never hardcoded) so it always reflects the real numbers.
     // -------------------------------------------------------------
     const PREMIUM_MONTHLY_USD = 0.50;  // Pi Premium — monthly plan
-    const PREMIUM_YEARLY_USD = 5.00;   // Pi Premium — yearly plan
+    const PREMIUM_YEARLY_USD = 4.00;   // Pi Premium — yearly plan
     const PREMIUM_MONTHLY_DAYS = 30;
     const PREMIUM_YEARLY_DAYS = 365;
     // What 12 straight months of the monthly plan would have cost — the
@@ -1021,7 +1021,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     premiumYearlyLabel: "Yearly",
                     premiumBestValue: "Best Value",
                     premiumMonthlySub: "$0.50 / month",
-                    premiumYearlySub: "$5.00 / year",
+                    premiumYearlySub: "$4.00 / year",
                     premiumSavings: "Save ${{amount}}/year ({{percent}}% off the monthly price)",
                     premiumFineprint: "Payments are one-time Pi charges that activate Premium for the plan's period; renew any time before or after it ends to keep your access uninterrupted.",
                     premiumStatusActive: "{{plan}} Premium active — expires {{date}} ({{days}} day(s) left). Subscribing again adds to this.",
@@ -1263,10 +1263,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 baseExtraTime = 1;
                 break;
             case 'expert':
-                baseHints = 2;
-                baseUndos = 2;
-                baseThreats = 2;
-                baseExtraTime = 2;
+                baseHints = 1;
+                baseUndos = 1;
+                baseThreats = 1;
+                baseExtraTime = 1;
                 break;
             default:
                 baseHints = 1;
