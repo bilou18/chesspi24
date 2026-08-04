@@ -906,6 +906,12 @@ body {
     gap: 5px;
     margin-left: auto; 
 }
+.left-controls {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    margin-right: auto;
+}
 .player-color-indicator {
     width: 20px;
     height: 20px;
@@ -1144,7 +1150,8 @@ html.device-tablet .feature-count {
     color: #666;
 }
 
-.top-controls .control-icon {
+.top-controls .control-icon,
+.left-controls .control-icon {
     min-width: 45px;
     padding: 4px 3px;
 }
@@ -2024,6 +2031,34 @@ html.device-tablet .feature-count {
 }
 #premium-btn.premium-active i {
     animation: premiumCrownGlow 2.4s ease-in-out infinite;
+}
+/* Eye-catching gold flash shown briefly after a new game starts, to draw
+   a non-subscriber's attention to the Premium button so they notice it's
+   there to try. Distinct from premiumCrownGlow above (which is the calm,
+   permanent glow for players who already subscribed) — this one is
+   faster and stronger, and JS removes the class after ~10s so it never
+   runs indefinitely. */
+@keyframes premiumAttentionFlash {
+    0%, 100% {
+        color: #d1971e;
+        text-shadow: none;
+        transform: scale(1);
+    }
+    50% {
+        color: #ffd700;
+        text-shadow: 0 0 12px rgba(255, 215, 0, 0.95), 0 0 22px rgba(255, 215, 0, 0.6);
+        transform: scale(1.18);
+    }
+}
+#premium-btn.premium-attention-flash i {
+    animation: premiumAttentionFlash 0.9s ease-in-out infinite;
+}
+@keyframes premiumAttentionPulseBg {
+    0%, 100% { box-shadow: none; }
+    50% { box-shadow: 0 0 14px 4px rgba(255, 215, 0, 0.55); border-radius: 50%; }
+}
+#premium-btn.premium-attention-flash {
+    animation: premiumAttentionPulseBg 0.9s ease-in-out infinite;
 }
 /* Days-left badge on the crown button — reuses the .feature-count circle
    but in the gold Premium color instead of the default blue, so it reads
