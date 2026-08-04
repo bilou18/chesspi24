@@ -2936,6 +2936,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // ENHANCED FUNCTION FROM script (8).js - Fixed end game logic
     // Function to end the game and show modal
     function endGame(message, isWin = false) {
+        // Stop the Premium attention-flash cycle the moment the match ends,
+        // for the same reason as the low-time ticking sound below — no
+        // matter why it ended.
+        stopPremiumAttentionFlashCycle();
+
         // FREE TRIAL: this one game was the trial's single "use" — spend it
         // and let renderLockState() re-lock the item (and reset userSettings
         // back to the free default) so the next game starts from scratch
@@ -3112,28 +3117,55 @@ document.addEventListener('DOMContentLoaded', function() {
         if (gameOverModal) gameOverModal.style.display = 'none';
         if (!isMuted) sounds['game-start'].play();
 
-        triggerPremiumAttentionFlash();
+        startPremiumAttentionFlashCycle();
     }
 
-    // Briefly flashes the Premium crown icon gold shortly after a new game
-    // starts, to catch a non-subscriber's eye so they notice it's there to
-    // try. Skipped for players who already have an active subscription —
-    // no need to draw attention to something they've already got.
-    function triggerPremiumAttentionFlash() {
+    // Repeatedly flashes the Premium crown icon gold for ~10s, pauses for
+    // ~10s, and repeats for as long as the current match is in progress —
+    // so a non-subscriber keeps noticing it's there to try without it
+    // running permanently once they've clicked away. Started in
+    // initNewGame() and stopped in endGame() (see stopPremiumAttentionFlashCycle
+    // below). Skipped/stopped entirely for players who already have an
+    // active subscription.
+    let premiumFlashTimer = null;
+    let premiumFlashActive = false;
+
+    function startPremiumAttentionFlashCycle() {
+        stopPremiumAttentionFlashCycle(); // never let two cycles overlap
         const btn = document.getElementById('premium-btn');
         if (!btn || btn.classList.contains('premium-active')) return;
 
-        // Small delay so it starts after the board/timer animation settles,
-        // rather than competing with it the instant the game appears.
-        setTimeout(() => {
-            // Re-check in case Premium activated (e.g. a sync completed)
-            // during the delay above.
-            if (btn.classList.contains('premium-active')) return;
-            btn.classList.add('premium-attention-flash');
-            setTimeout(() => {
-                btn.classList.remove('premium-attention-flash');
-            }, 9500); // "a little under 10 seconds" of flashing
-        }, 1200);
+        premiumFlashActive = true;
+
+        function tick(turnOn) {
+            if (!premiumFlashActive) return;
+            // Re-check each tick — e.g. Premium may have activated, or the
+            // button may have been removed, since the cycle started.
+            if (!btn.isConnected || btn.classList.contains('premium-active')) {
+                stopPremiumAttentionFlashCycle();
+                return;
+            }
+            btn.classList.toggle('premium-attention-flash', turnOn);
+            premiumFlashTimer = setTimeout(() => tick(!turnOn), 10000);
+        }
+
+        // Small initial delay so the first flash starts after the
+        // board/timer animation settles, rather than competing with it the
+        // instant the game appears.
+        premiumFlashTimer = setTimeout(() => tick(true), 1200);
+    }
+
+    // Stops the flash cycle immediately (match ended, a new game is about
+    // to start, or Premium just activated) and makes sure the icon isn't
+    // left mid-flash.
+    function stopPremiumAttentionFlashCycle() {
+        premiumFlashActive = false;
+        if (premiumFlashTimer) {
+            clearTimeout(premiumFlashTimer);
+            premiumFlashTimer = null;
+        }
+        const btn = document.getElementById('premium-btn');
+        if (btn) btn.classList.remove('premium-attention-flash');
     }
 
     // Function to update game status (check, checkmate, etc.)
