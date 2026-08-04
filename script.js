@@ -1113,7 +1113,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const clickedTheme = this.getAttribute('data-theme');
 
             if (this.classList.contains('locked')) {
-                if (hasTriedTheme(clickedTheme)) {
+                // The one-time free trial can only be tracked reliably for
+                // a verified Pi identity (triedThemes is synced server-side
+                // — see fetchProgressFromServer/syncProgressToServer).
+                // Without piAccessToken (outside Pi Browser, or Pi login
+                // declined) there's no way to remember "already tried"
+                // across a cleared localStorage/cookies, so the trial would
+                // be repeatable indefinitely. Go straight to the paywall
+                // instead of offering a trial we can't actually enforce.
+                if (!piAccessToken || hasTriedTheme(clickedTheme)) {
                     showUnlockModal('theme', clickedTheme);
                     return;
                 }
@@ -1146,7 +1154,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const clickedPieceSet = this.getAttribute('data-piece-set');
 
             if (this.classList.contains('locked')) {
-                if (hasTriedPieceSet(clickedPieceSet)) {
+                // See the matching comment in the theme-selection handler
+                // above — the free trial requires a verified Pi identity to
+                // be enforceable at all.
+                if (!piAccessToken || hasTriedPieceSet(clickedPieceSet)) {
                     showUnlockModal('pieceset', clickedPieceSet);
                     return;
                 }
@@ -1179,7 +1190,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const clickedDifficulty = this.getAttribute('data-difficulty');
 
             if (this.classList.contains('locked')) {
-                if (hasTriedLevel(clickedDifficulty)) {
+                // See the matching comment in the theme-selection handler
+                // above — the free trial requires a verified Pi identity to
+                // be enforceable at all.
+                if (!piAccessToken || hasTriedLevel(clickedDifficulty)) {
                     showUnlockModal('level', clickedDifficulty);
                     return;
                 }
