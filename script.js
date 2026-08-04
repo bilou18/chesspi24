@@ -3111,6 +3111,29 @@ document.addEventListener('DOMContentLoaded', function() {
         const gameOverModal = document.getElementById('game-over-modal');
         if (gameOverModal) gameOverModal.style.display = 'none';
         if (!isMuted) sounds['game-start'].play();
+
+        triggerPremiumAttentionFlash();
+    }
+
+    // Briefly flashes the Premium crown icon gold shortly after a new game
+    // starts, to catch a non-subscriber's eye so they notice it's there to
+    // try. Skipped for players who already have an active subscription —
+    // no need to draw attention to something they've already got.
+    function triggerPremiumAttentionFlash() {
+        const btn = document.getElementById('premium-btn');
+        if (!btn || btn.classList.contains('premium-active')) return;
+
+        // Small delay so it starts after the board/timer animation settles,
+        // rather than competing with it the instant the game appears.
+        setTimeout(() => {
+            // Re-check in case Premium activated (e.g. a sync completed)
+            // during the delay above.
+            if (btn.classList.contains('premium-active')) return;
+            btn.classList.add('premium-attention-flash');
+            setTimeout(() => {
+                btn.classList.remove('premium-attention-flash');
+            }, 9500); // "a little under 10 seconds" of flashing
+        }, 1200);
     }
 
     // Function to update game status (check, checkmate, etc.)
@@ -3561,11 +3584,21 @@ document.addEventListener('DOMContentLoaded', function() {
     function playMoveSound(move, isPlayer = true) {
         if (!isMuted) {
             let moveSoundType = isPlayer ? 'move-self' : 'move-opponent';
+            // Castling detected two ways and OR'd together: chess.js's own
+            // 'k'/'q' move flags, AND independently by "the king moved two
+            // files" (from/to file distance === 2). The second check is a
+            // safety net — it doesn't depend on flags being set correctly
+            // by whichever code path produced this move object (engine
+            // moves are applied via the same {from,to} object form as
+            // on-screen player clicks, but this way the castle sound can
+            // never silently fail to fire for one side and not the other).
+            const isKingTwoFileMove = move.piece === 'k' &&
+                Math.abs(move.from.charCodeAt(0) - move.to.charCodeAt(0)) === 2;
             if (move.flags.includes('c') || move.flags.includes('e')) {
                 moveSoundType = 'capture';
             } else if (move.flags.includes('p')) {
                 moveSoundType = 'promote';
-            } else if (move.flags.includes('k') || move.flags.includes('q')) {
+            } else if (move.flags.includes('k') || move.flags.includes('q') || isKingTwoFileMove) {
                 moveSoundType = 'castle';
             }
             sounds[moveSoundType].play();
