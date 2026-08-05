@@ -2077,6 +2077,10 @@ html.device-tablet .feature-count {
 /* ===== Pi Premium subscription modal ===== */
 .premium-modal-content {
     text-align: center;
+    margin-top: 5vh;
+    margin-bottom: 5vh;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 .premium-crown-icon {
     width: 60px;
