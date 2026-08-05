@@ -590,17 +590,24 @@
             <div class="modal-content unlock-modal-content">
                 <span class="close"><i class="fas fa-xmark"></i></span>
                 <div class="unlock-lock-icon"><i class="fas fa-lock"></i></div>
+                <span class="unlock-type-badge" id="unlock-type-badge">Item</span>
                 <h2 id="unlock-modal-title">Locked</h2>
-                <p id="unlock-modal-desc">This item is locked.</p>
-                <button id="unlock-pay-btn" class="nav-button unlock-pay-btn">
-                    <div class="pi-coin-icon-small">π</div>
-                    <span id="unlock-price-text">Unlock for 10 π</span>
-                </button>
-                <button id="unlock-all-btn" class="nav-button unlock-all-btn">
-                    <i class="fas fa-unlock"></i>
-                    <span id="unlock-all-text">Unlock All Themes — 25 π</span>
-                </button>
-                <button id="unlock-cancel-btn" class="nav-button unlock-cancel-btn">Maybe Later</button>
+                <p id="unlock-modal-desc" class="unlock-modal-desc">This item is locked.</p>
+                <p id="unlock-tried-note" class="unlock-tried-note hidden"><i class="fas fa-circle-info"></i><span id="unlock-tried-note-text"></span></p>
+                <div class="unlock-actions">
+                    <button id="unlock-pay-btn" class="unlock-primary-btn">
+                        <span class="unlock-btn-icon pi-coin-icon-small">π</span>
+                        <span class="unlock-btn-copy">
+                            <span class="unlock-btn-title">Unlock Now</span>
+                            <span class="unlock-btn-price" id="unlock-price-text">10 π</span>
+                        </span>
+                    </button>
+                    <button id="unlock-all-btn" class="unlock-secondary-btn">
+                        <i class="fas fa-unlock"></i>
+                        <span id="unlock-all-text">Unlock All Themes — 25 π</span>
+                    </button>
+                    <button id="unlock-cancel-btn" class="unlock-ghost-btn">Maybe Later</button>
+                </div>
             </div>
         </div>
         <!-- Pi Premium subscription modal: monthly / yearly plans, priced in
@@ -629,7 +636,7 @@
                 </div>
                 <p class="premium-status" id="premium-status-text"></p>
                 <p class="premium-fineprint">Payments are one-time Pi charges that activate Premium for the plan's period; renew any time before or after it ends to keep your access uninterrupted.</p>
-                <button id="premium-cancel-btn" class="nav-button unlock-cancel-btn">Maybe Later</button>
+                <button id="premium-cancel-btn" class="unlock-ghost-btn">Maybe Later</button>
             </div>
         </div>
     </div>
