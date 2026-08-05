@@ -2092,7 +2092,7 @@ html.device-tablet .feature-count {
     box-shadow: 0 4px 10px rgba(209, 151, 30, 0.45);
 }
 .premium-modal-desc {
-    color: #666;
+    color: #555;
     font-size: 14px;
     margin: 0 auto 6px;
     max-width: 360px;
@@ -2203,8 +2203,8 @@ html.device-tablet .feature-count {
     color: #d1491e;
 }
 .premium-fineprint {
-    font-size: 11px;
-    color: #a89bc0;
+    font-size: 12px;
+    color: #6b5a8c;
     margin: 10px auto 0;
     max-width: 320px;
 }
