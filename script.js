@@ -1014,8 +1014,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     exportPGN: "Export PGN",
                     importPGN: "Import PGN",
                     timeLeft: "Time Left",
-                    premiumAriaLabel: "Pi Premium subscription",
-                    premiumTitle: "Pi Premium",
+                    premiumAriaLabel: "Chess Pi Premium subscription",
+                    premiumTitle: "Chess Pi Premium",
                     premiumDesc: "Unlock every level, board theme, and piece set for as long as your subscription is active.",
                     premiumMonthlyLabel: "Monthly",
                     premiumYearlyLabel: "Yearly",
@@ -1026,9 +1026,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     premiumFineprint: "Payments are one-time Pi charges that activate Premium for the plan's period; renew any time before or after it ends to keep your access uninterrupted.",
                     premiumStatusActive: "{{plan}} Premium active — expires {{date}} ({{days}} day(s) left). Subscribing again adds to this.",
                     premiumStatusExpired: "Your Premium subscription expired on {{date}}. Subscribe again to unlock everything.",
-                    premiumExpiryTooltip: "Pi Premium expires {{date}}",
-                    premiumReminderExpiringSoon: "Your Pi Premium subscription expires in {{days}} day(s), on {{date}}. Renew now to avoid losing access.",
-                    premiumReminderExpired: "Your Pi Premium subscription expired on {{date}}. Tap the crown icon to renew and unlock everything again.",
+                    premiumExpiryTooltip: "Chess Pi Premium expires {{date}}",
+                    premiumReminderExpiringSoon: "Your Chess Pi Premium subscription expires in {{days}} day(s), on {{date}}. Renew now to avoid losing access.",
+                    premiumReminderExpired: "Your Chess Pi Premium subscription expired on {{date}}. Tap the crown icon to renew and unlock everything again.",
                     vipBadgeTooltip: "Pi VIP — Premium subscriber or has purchased premium content",
                     freeTrialUsed: "Enjoy your one-time free trial of {{name}}! It'll lock again after this — unlock it permanently anytime with Pi.",
                     alreadyTriedNote: "You already used your free trial for this — unlock it permanently with Pi to keep using it."
@@ -1899,7 +1899,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const paymentData = {
                 amount: price,
-                memo: `Pi Premium — ${planLabel} subscription`,
+                memo: `Chess Pi Premium — ${planLabel} subscription`,
                 metadata: { productId: `premium_${plan}`, usdPrice: usdCharged }
             };
 
@@ -1934,7 +1934,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         const modal = document.getElementById('premium-modal');
                         if (modal) modal.style.display = 'none';
-                        showCustomAlert(`Pi Premium (${planLabel}) is active! Every level, theme, and piece set is unlocked while it lasts.`);
+                        showCustomAlert(`Chess Pi Premium (${planLabel}) is active! Every level, theme, and piece set is unlocked while it lasts.`);
                     } catch (error) {
                         console.error('Premium completion error:', error);
                         showCustomAlert('Completion failed: ' + error.message);
@@ -5146,6 +5146,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Shortens a username for display on the public leaderboard, keeping
+    // only the first 5 characters (4 for shorter names) and appending an
+    // ellipsis — this trims off the END of the name (not the start), so
+    // the visible prefix is always the real beginning of the username.
+    // Protects player privacy and keeps the list visually tidy.
+    function maskUsername(name) {
+        if (!name) return 'Guest';
+        const trimmed = name.trim();
+        if (trimmed.length <= 5) return trimmed;
+        return trimmed.slice(0, 5) + '···';
+    }
+
     // Fetches the top players from the server and renders them. Falls back
     // to a friendly message if the player isn't signed in with Pi, or if
     // the request fails for any reason (e.g. offline).
@@ -5178,7 +5190,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const played = entry.gamesPlayed || 0;
                 const winRate = played > 0 ? Math.round((wins / played) * 100) : 0;
                 const points = Number.isFinite(entry.score) ? entry.score : wins;
-                const username = entry.username || 'Guest';
+                const username = maskUsername(entry.username);
 
                 const li = document.createElement('li');
                 li.className = 'leaderboard-item';
