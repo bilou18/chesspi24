@@ -1606,11 +1606,14 @@ document.addEventListener('DOMContentLoaded', function() {
     async function showUnlockModal(type, name) {
         pendingUnlock = { type, name };
         const modal = document.getElementById('unlock-modal');
+        const badge = document.getElementById('unlock-type-badge');
         const title = document.getElementById('unlock-modal-title');
         const desc = document.getElementById('unlock-modal-desc');
         const priceText = document.getElementById('unlock-price-text');
         const unlockAllBtn = document.getElementById('unlock-all-btn');
         const unlockAllText = document.getElementById('unlock-all-text');
+        const triedNoteEl = document.getElementById('unlock-tried-note');
+        const triedNoteTextEl = document.getElementById('unlock-tried-note-text');
         if (!modal || !title || !desc || !priceText) return;
 
         // Make sure we have a reasonably fresh PI/USD rate before showing
@@ -1618,31 +1621,41 @@ document.addEventListener('DOMContentLoaded', function() {
         // usually instant).
         await fetchPiUsdPrice();
 
+        // Hide the "already tried" note by default; only the single-item
+        // branches below turn it back on, and only when it applies.
+        if (triedNoteEl) triedNoteEl.classList.add('hidden');
+        if (badge) badge.textContent = 'Bundle';
+
         let price = getUnlockPricePi();
         if (type === 'all-levels') {
             const remaining = getRemainingLockedLevels();
             price = getBundlePricePi(remaining.length);
             title.textContent = 'Unlock All Levels';
-            desc.textContent = 'Unlock Medium, Hard, and Expert difficulty all at once with Pi.';
+            desc.textContent = 'Get Medium, Hard, and Expert difficulty in one purchase.';
             if (unlockAllBtn) unlockAllBtn.classList.add('hidden');
         } else if (type === 'all-themes') {
             const remaining = getRemainingLockedThemes();
             price = getBundlePricePi(remaining.length);
             title.textContent = 'Unlock All Themes';
-            desc.textContent = 'Unlock Green, Pink, and Blue board themes all at once with Pi.';
+            desc.textContent = 'Get the Green, Pink, and Blue board themes in one purchase.';
             if (unlockAllBtn) unlockAllBtn.classList.add('hidden');
         } else if (type === 'all-piecesets') {
             const remaining = getRemainingLockedPieceSets();
             price = getBundlePricePi(remaining.length);
             title.textContent = 'Unlock All Piece Sets';
-            desc.textContent = 'Unlock Wood, Glass, and Marble piece sets all at once with Pi.';
+            desc.textContent = 'Get the Wood, Glass, and Marble piece sets in one purchase.';
             if (unlockAllBtn) unlockAllBtn.classList.add('hidden');
         } else {
             const displayName = UNLOCK_DISPLAY_NAMES[name] || name;
-            const triedNote = (typeof i18next !== 'undefined' && i18next.t) ? ' ' + i18next.t('alreadyTriedNote') : ' You already used your free trial for this — unlock it permanently with Pi to keep using it.';
+            const triedNote = (typeof i18next !== 'undefined' && i18next.t) ? i18next.t('alreadyTriedNote') : 'You already used your free trial for this. Unlock it with Pi to keep using it.';
             if (type === 'level') {
-                title.textContent = `${displayName} Difficulty is Locked`;
-                desc.textContent = `Beat the previous level to unlock ${displayName} for free, or unlock it instantly with Pi.` + (hasTriedLevel(name) ? triedNote : '');
+                if (badge) badge.textContent = 'Difficulty Level';
+                title.textContent = displayName;
+                desc.textContent = `Beat the previous level to unlock it free, or unlock it now with Pi.`;
+                if (hasTriedLevel(name) && triedNoteEl && triedNoteTextEl) {
+                    triedNoteTextEl.textContent = triedNote;
+                    triedNoteEl.classList.remove('hidden');
+                }
                 const remaining = getRemainingLockedLevels();
                 if (unlockAllBtn) {
                     // Only worth offering "unlock the rest" when there's
@@ -1655,8 +1668,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     unlockAllText.textContent = `Unlock Remaining ${remaining.length} Levels — ${formatPiAmount(bundlePrice)} π`;
                 }
             } else if (type === 'theme') {
-                title.textContent = `${displayName} Theme is Locked`;
-                desc.textContent = `Unlock the ${displayName} board theme instantly with Pi.` + (hasTriedTheme(name) ? triedNote : '');
+                if (badge) badge.textContent = 'Board Theme';
+                title.textContent = displayName;
+                desc.textContent = `Unlock this board theme instantly with Pi.`;
+                if (hasTriedTheme(name) && triedNoteEl && triedNoteTextEl) {
+                    triedNoteTextEl.textContent = triedNote;
+                    triedNoteEl.classList.remove('hidden');
+                }
                 const remaining = getRemainingLockedThemes();
                 if (unlockAllBtn) {
                     unlockAllBtn.classList.toggle('hidden', remaining.length <= 1);
@@ -1667,8 +1685,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     unlockAllText.textContent = `Unlock Remaining ${remaining.length} Themes — ${formatPiAmount(bundlePrice)} π`;
                 }
             } else {
-                title.textContent = `${displayName} Piece Set is Locked`;
-                desc.textContent = `Unlock the ${displayName} piece set instantly with Pi. It works with any board theme.` + (hasTriedPieceSet(name) ? triedNote : '');
+                if (badge) badge.textContent = 'Piece Set';
+                title.textContent = displayName;
+                desc.textContent = `Unlock this piece set instantly with Pi. Works with any board theme.`;
+                if (hasTriedPieceSet(name) && triedNoteEl && triedNoteTextEl) {
+                    triedNoteTextEl.textContent = triedNote;
+                    triedNoteEl.classList.remove('hidden');
+                }
                 const remaining = getRemainingLockedPieceSets();
                 if (unlockAllBtn) {
                     unlockAllBtn.classList.toggle('hidden', remaining.length <= 1);
@@ -1680,7 +1703,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }
-        priceText.textContent = `Unlock for ${formatPiAmount(price)} \u03C0`;
+        priceText.textContent = `${formatPiAmount(price)} \u03C0`;
 
         modal.style.display = 'block';
     }
