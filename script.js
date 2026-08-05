@@ -248,6 +248,19 @@ document.addEventListener('DOMContentLoaded', function() {
     let piAccessToken = null;
     let piUserUid = null;
     let piUsername = null;
+
+    // Extra safety net on top of the piAccessToken check: the Pi SDK
+    // script (sdk.minepi.com/pi-sdk.js) loads fine in *any* browser, so
+    // `typeof Pi !== 'undefined'` alone doesn't prove we're inside Pi
+    // Browser — only that the script downloaded. Pi Browser's webview adds
+    // "PiBrowser" to the user agent, so we check that too before ever
+    // treating a session as eligible for the free trial. Belt-and-suspenders:
+    // Pi.authenticate() should already fail/hang outside Pi Browser (it
+    // needs the native app's message bridge), but this makes the
+    // restriction explicit and not solely dependent on that behavior.
+    function isPiBrowserEnvironment() {
+        return typeof navigator !== 'undefined' && /PiBrowser/i.test(navigator.userAgent || '');
+    }
     // Signed, server-issued token proving when the current game started and
     // at what difficulty (see start-game.js). Requested fresh for every new
     // game and consumed (single-use) by submit-score.js — never trust a
@@ -873,7 +886,8 @@ document.addEventListener('DOMContentLoaded', function() {
         renderPremiumState();
         fetchPiUsdPrice().catch(() => {}); // warm the price cache in the background; never blocks init
         try {
-            if (typeof Pi === 'undefined') return; // not running inside Pi Browser
+            if (typeof Pi === 'undefined') return; // Pi SDK script didn't load
+            if (!isPiBrowserEnvironment()) return; // SDK loaded, but we're not inside Pi Browser — don't attempt auth or grant trials
             const auth = await Pi.authenticate(['username', 'payments'], resolveIncompletePayment);
             if (auth && auth.accessToken && auth.user) {
                 piAccessToken = auth.accessToken;
@@ -1121,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // across a cleared localStorage/cookies, so the trial would
                 // be repeatable indefinitely. Go straight to the paywall
                 // instead of offering a trial we can't actually enforce.
-                if (!piAccessToken || hasTriedTheme(clickedTheme)) {
+                if (!piAccessToken || !isPiBrowserEnvironment() || hasTriedTheme(clickedTheme)) {
                     showUnlockModal('theme', clickedTheme);
                     return;
                 }
@@ -1157,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // See the matching comment in the theme-selection handler
                 // above — the free trial requires a verified Pi identity to
                 // be enforceable at all.
-                if (!piAccessToken || hasTriedPieceSet(clickedPieceSet)) {
+                if (!piAccessToken || !isPiBrowserEnvironment() || hasTriedPieceSet(clickedPieceSet)) {
                     showUnlockModal('pieceset', clickedPieceSet);
                     return;
                 }
@@ -1193,7 +1207,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // See the matching comment in the theme-selection handler
                 // above — the free trial requires a verified Pi identity to
                 // be enforceable at all.
-                if (!piAccessToken || hasTriedLevel(clickedDifficulty)) {
+                if (!piAccessToken || !isPiBrowserEnvironment() || hasTriedLevel(clickedDifficulty)) {
                     showUnlockModal('level', clickedDifficulty);
                     return;
                 }
