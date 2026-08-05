@@ -26,7 +26,15 @@
 <script>
   Pi.init({ version: "2.0", sandbox: false });  // Set sandbox: false for production
 </script>
-    <link rel="stylesheet" href="styles.css?v=3">
+    <!-- No cache-busting query string here on purpose: _headers already sets
+         styles.css to `max-age=300, must-revalidate`, which is the
+         Netlify-bandwidth-friendly way to do this — the browser re-checks
+         with the server after 5 minutes and gets a cheap 304 (near-zero
+         bytes) if nothing changed, or the new file only if it did. A
+         "?v=" or Date.now() trick would force a full re-download on every
+         single page load, defeating that and burning through free-tier
+         bandwidth. -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="app-container">
@@ -640,7 +648,7 @@
             </div>
         </div>
     </div>
-    <script src="script.js?v=2"></script>
+    <script src="script.js"></script>
 <div id="custom-alert-modal" style="display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);">
   <div style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 8px; text-align: center;">
     <p id="custom-alert-message" style="margin-bottom: 20px; font-size: 16px;"></p>
