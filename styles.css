@@ -493,6 +493,7 @@ body {
 }
 .control-icon i {
     font-size: 16px;
+    line-height: 1;
     margin-bottom: 5px;
     color: #fff;
     width: 32px;
@@ -544,6 +545,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    line-height: 1;
     font-family: Georgia, 'Times New Roman', serif;
     font-weight: bold;
     font-size: 17px;
