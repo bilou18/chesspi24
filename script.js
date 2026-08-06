@@ -887,7 +887,16 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchPiUsdPrice().catch(() => {}); // warm the price cache in the background; never blocks init
         try {
             if (typeof Pi === 'undefined') return; // Pi SDK script didn't load
-            if (!isPiBrowserEnvironment()) return; // SDK loaded, but we're not inside Pi Browser — don't attempt auth or grant trials
+            // NOTE: intentionally NOT gating this on isPiBrowserEnvironment().
+            // That check reads navigator.userAgent, and on a cold load inside
+            // Pi Browser's webview the "PiBrowser" token isn't always present
+            // yet (it can show up only after a reload), which was blocking
+            // real Pi Browser users from ever authenticating — the exact
+            // "works after refresh" symptom this fixes. Pi.authenticate()
+            // itself already fails/hangs harmlessly outside Pi Browser (no
+            // native message bridge), so it's a safe, more reliable gate on
+            // its own. isPiBrowserEnvironment() is still used as an extra
+            // check specifically around free-trial grants further below.
             const auth = await Pi.authenticate(['username', 'payments'], resolveIncompletePayment);
             if (auth && auth.accessToken && auth.user) {
                 piAccessToken = auth.accessToken;
@@ -1404,15 +1413,13 @@ document.addEventListener('DOMContentLoaded', function() {
         checkRefillButtonState();
     }
    
-    // Pi SDK Initialization
-    try {
-        if (typeof Pi !== 'undefined') {
-            Pi.init({ version: "2.0", sandbox: false }); // Change sandbox to false for production
-        } else {
-            console.error('Pi SDK script not loaded — payment features will be unavailable.');
-        }
-    } catch (e) {
-        console.error('Pi.init failed:', e);
+    // Pi SDK availability check only — Pi.init() itself already runs once,
+    // synchronously, in index.html right after the SDK script tag (before
+    // this file even loads). Calling Pi.init() a second time here was
+    // redundant and risked re-initializing the SDK's internal session state
+    // right before the authenticate() call below runs, so it's been removed.
+    if (typeof Pi === 'undefined') {
+        console.error('Pi SDK script not loaded — payment features will be unavailable.');
     }
 
     // Start syncing the player's account-linked progress in the background.
