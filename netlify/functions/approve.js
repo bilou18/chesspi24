@@ -12,6 +12,9 @@
 // come from Pi's servers, not the client. It then:
 //   1. Resolves metadata.productId against the server-side catalog
 //      (products.js) — unrecognized product ids are rejected outright.
+//      For bundle products this also reads the player's real stored
+//      progress so the expected price reflects how many items they
+//      actually still have locked (see products.js#buildBundleProduct).
 //   2. Sanity-checks the paid amount against that product's expected USD
 //      price (generous tolerance — see products.js).
 //   3. Calls Pi's /approve endpoint.
@@ -65,7 +68,19 @@ exports.handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: 'Malformed payment from Pi' }) };
         }
 
-        const product = resolveProduct(productId);
+        // For bundle products, price against how many items THIS player
+        // actually still has locked right now — see products.js's
+        // buildBundleProduct() for why this matters (previously bundles
+        // were always priced as if only one item were locked, which let a
+        // tampered client unlock a full 3-item category for a fraction of
+        // the real price).
+        const progressStore = getBlobStore('player-progress');
+        const existingProgress = await progressStore.get(uid, { type: 'json' }).catch(() => null);
+        const product = resolveProduct(productId, {
+            unlockedLevels: existingProgress && existingProgress.unlockedLevels,
+            unlockedThemes: existingProgress && existingProgress.unlockedThemes,
+            unlockedPieceSets: existingProgress && existingProgress.unlockedPieceSets
+        });
         if (!product) {
             console.error('approve: unrecognized productId, refusing to approve:', productId);
             return { statusCode: 400, body: JSON.stringify({ error: 'Unknown product' }) };
