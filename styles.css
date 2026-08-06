@@ -514,6 +514,15 @@ body {
     text-align: center;
     font-weight: 500;
 }
+/* Wraps an icon + its small usage-count badge as one unit, sized to the
+   icon itself rather than the whole (often much wider, on the desktop
+   sidebar) button. Without this, .feature-count's `position: absolute`
+   would anchor to the full-width button and drift away from the icon it's
+   supposed to be attached to. */
+.icon-badge-wrap {
+    position: relative;
+    display: inline-flex;
+}
 .feature-count {
     background-color: var(--primary-color);
     color: white;
