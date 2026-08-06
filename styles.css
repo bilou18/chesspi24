@@ -2064,8 +2064,10 @@ html.device-tablet .feature-count {
 }
 .unlock-btn-copy {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
     line-height: 1.25;
 }
 .unlock-btn-title {
@@ -2073,8 +2075,9 @@ html.device-tablet .feature-count {
     font-size: 14.5px;
 }
 .unlock-btn-price {
-    font-size: 12.5px;
-    opacity: 0.85;
+    font-size: 14.5px;
+    font-weight: 700;
+    opacity: 1;
 }
 .unlock-secondary-btn {
     background: #fff;
