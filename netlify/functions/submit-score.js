@@ -11,6 +11,11 @@
 // (wins/gamesPlayed/score) sent directly by the client, which let anyone
 // forge an arbitrary leaderboard position from the browser console.
 //
+// Also the sole place that persists FREE level progression (beating
+// 'medium' unlocks 'hard', etc.) to a player's stored progress — see the
+// "BUG FIX" comment further down for why it has to be here and not
+// save-progress.js.
+//
 // Requires the same GAME_TOKEN_SECRET env var as start-game.js.
 const axios = require('axios');
 const crypto = require('crypto');
@@ -25,6 +30,8 @@ function getBlobStore(name) {
     }
     return getStore(name);
 }
+
+const { LEVEL_SEQUENCE } = require('./_lib/products');
 
 const LEADERBOARD_TOP_KEY = '__leaderboard_top50__';
 const TOP_N = 50;
@@ -175,6 +182,49 @@ exports.handler = async (event) => {
         // player (no recent games) still gets it refreshed sooner via
         // update-vip-status.js right after their purchase completes.
         const progress = await getBlobStore('player-progress').get(uid, { type: 'json' }).catch(() => null);
+
+        // BUG FIX: a "win" here (at claims.difficulty — the real,
+        // server-verified difficulty, downgraded to 'easy' by start-game.js
+        // if the player wasn't entitled to what they requested) is exactly
+        // the trusted signal needed to advance the FREE level-progression
+        // path (easy -> medium -> hard -> expert), same as beating a level
+        // was always meant to do (see LEVEL_SEQUENCE/getNextLevel in
+        // script.js). This used to only ever happen client-side
+        // (grantProgress() writing to localStorage) and was silently wiped
+        // the moment it round-tripped through save-progress.js, because
+        // that endpoint only ever persists purchased unlocks — never
+        // anything the client claims to have earned. Recording it HERE
+        // instead is safe to trust precisely because it's driven by the
+        // signed, single-use game token (verified above), not by anything
+        // the client asserts directly.
+        if (result === 'win') {
+            try {
+                const diffIndex = LEVEL_SEQUENCE.indexOf(claims.difficulty);
+                const nextLevel = (diffIndex >= 0 && diffIndex < LEVEL_SEQUENCE.length - 1)
+                    ? LEVEL_SEQUENCE[diffIndex + 1]
+                    : null;
+                if (nextLevel) {
+                    const base = progress || {
+                        unlockedLevels: ['easy'], unlockedThemes: ['brown'], unlockedPieceSets: ['neo'],
+                        premiumPlan: null, premiumExpiresAt: null,
+                        purchasedLevels: [], purchasedThemes: [], purchasedPieceSets: [],
+                        earnedLevels: [], triedLevels: [], triedThemes: [], triedPieceSets: []
+                    };
+                    const alreadyUnlocked = Array.isArray(base.unlockedLevels) && base.unlockedLevels.includes(nextLevel);
+                    if (!alreadyUnlocked) {
+                        const earnedLevels = Array.from(new Set([...(base.earnedLevels || []), nextLevel]));
+                        const unlockedLevels = Array.from(new Set([...(base.unlockedLevels || ['easy']), nextLevel]));
+                        await getBlobStore('player-progress').setJSON(uid, { ...base, earnedLevels, unlockedLevels });
+                    }
+                }
+            } catch (progressErr) {
+                // Non-fatal: the score/leaderboard update above already
+                // succeeded, and a missed level-unlock here just means the
+                // player sees it granted locally until their next sync.
+                console.error('submit-score: failed to record earned level progress:', progressErr.message);
+            }
+        }
+
         const premiumActive = !!(progress && typeof progress.premiumExpiresAt === 'number' && progress.premiumExpiresAt > Date.now());
         const hasPurchase = !!(progress && (
             (progress.purchasedLevels && progress.purchasedLevels.length > 0) ||
