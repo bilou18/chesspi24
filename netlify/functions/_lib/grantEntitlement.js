@@ -22,6 +22,7 @@ const DEFAULT_PROGRESS = {
     purchasedLevels: [],
     purchasedThemes: [],
     purchasedPieceSets: [],
+    earnedLevels: [],
     triedLevels: [],
     triedThemes: [],
     triedPieceSets: []
@@ -47,6 +48,7 @@ async function grantEntitlement(uid, product) {
         purchasedLevels: [...(existing.purchasedLevels || [])],
         purchasedThemes: [...(existing.purchasedThemes || [])],
         purchasedPieceSets: [...(existing.purchasedPieceSets || [])],
+        earnedLevels: [...(existing.earnedLevels || [])],
         triedLevels: [...(existing.triedLevels || [])],
         triedThemes: [...(existing.triedThemes || [])],
         triedPieceSets: [...(existing.triedPieceSets || [])]
