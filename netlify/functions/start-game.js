@@ -60,12 +60,21 @@ function sign(payloadB64) {
 // True if `level` is playable by this player right now, per their real
 // server-stored progress — never the client's copy. Mirrors
 // isLevelUnlocked() in script.js.
+//
+// Checks unlockedLevels (not just purchasedLevels) because unlockedLevels
+// also includes anything earned for free by winning the previous level in
+// sequence (see the "BUG FIX" comment in submit-score.js, which is the
+// only place that writes to it) — without this, a player who legitimately
+// earned 'medium' by winning 'easy' would never be able to actually START
+// a 'medium' game (their token would keep getting silently downgraded to
+// 'easy' here), so they could never go on to earn 'hard' either.
 function isLevelEntitled(level, progress) {
     if (level === 'easy') return true;
     if (!progress) return false;
     const premiumActive = typeof progress.premiumExpiresAt === 'number' && progress.premiumExpiresAt > Date.now();
     if (premiumActive) return true;
-    return Array.isArray(progress.purchasedLevels) && progress.purchasedLevels.includes(level);
+    if (Array.isArray(progress.purchasedLevels) && progress.purchasedLevels.includes(level)) return true;
+    return Array.isArray(progress.unlockedLevels) && progress.unlockedLevels.includes(level);
 }
 
 exports.handler = async (event) => {
