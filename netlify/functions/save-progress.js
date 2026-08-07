@@ -62,6 +62,7 @@ const DEFAULT_PROGRESS = {
     purchasedLevels: [],
     purchasedThemes: [],
     purchasedPieceSets: [],
+    earnedLevels: [],
     triedLevels: [],
     triedThemes: [],
     triedPieceSets: []
@@ -128,15 +129,27 @@ exports.handler = async (event) => {
             premiumExpiresAt: typeof existingProgress.premiumExpiresAt === 'number' ? existingProgress.premiumExpiresAt : null,
             purchasedLevels: existingProgress.purchasedLevels || [],
             purchasedThemes: existingProgress.purchasedThemes || [],
-            purchasedPieceSets: existingProgress.purchasedPieceSets || []
+            purchasedPieceSets: existingProgress.purchasedPieceSets || [],
+
+            // Free level progression (beating 'medium' unlocks 'hard', etc.):
+            // ALWAYS carried forward from what's already stored, NEVER taken
+            // from incomingProgress either — only submit-score.js may add to
+            // this, and only after verifying a real win via the signed game
+            // token (see the "BUG FIX" comment there). Before this field
+            // existed, a client-reported "I won and unlocked the next level"
+            // had nowhere legitimate to persist, so every earned unlock was
+            // silently wiped by mergedProgress.unlockedLevels below the
+            // instant this endpoint was called.
+            earnedLevels: existingProgress.earnedLevels || []
         };
 
         // unlockedLevels/unlockedThemes/unlockedPieceSets are NEVER taken
         // from incomingProgress (see SECURITY FIX #2 above) — they are
         // always exactly "free defaults + whatever was actually
-        // purchased", recomputed fresh from server-trusted data every
-        // time, the same way grantEntitlement.js derives them.
-        mergedProgress.unlockedLevels = union(DEFAULT_PROGRESS.unlockedLevels, mergedProgress.purchasedLevels);
+        // purchased + whatever was actually earned by winning", recomputed
+        // fresh from server-trusted data every time, the same way
+        // grantEntitlement.js derives them.
+        mergedProgress.unlockedLevels = union(union(DEFAULT_PROGRESS.unlockedLevels, mergedProgress.purchasedLevels), mergedProgress.earnedLevels);
         mergedProgress.unlockedThemes = union(DEFAULT_PROGRESS.unlockedThemes, mergedProgress.purchasedThemes);
         mergedProgress.unlockedPieceSets = union(DEFAULT_PROGRESS.unlockedPieceSets, mergedProgress.purchasedPieceSets);
 
