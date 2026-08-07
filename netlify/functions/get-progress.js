@@ -26,6 +26,7 @@ const DEFAULT_PROGRESS = {
     purchasedLevels: [],
     purchasedThemes: [],
     purchasedPieceSets: [],
+    earnedLevels: [],
     triedLevels: [],
     triedThemes: [],
     triedPieceSets: []
