@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const discountedUsd = totalUsd * (1 - BUNDLE_DISCOUNT_RATE);
         return usdToPi(discountedUsd);
     }
-    // "Refill" feature top-up price, in Pi. Flat $0.01 — never discounted,
+    // "Refill" feature top-up price, in Pi. Flat $0.006 — never discounted,
     // regardless of how it's purchased.
     function getRefillPricePi() {
         return usdToPi(REFILL_PRICE_USD);
@@ -3094,14 +3094,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update game status
         const gameStatusEl = document.getElementById('game-status');
         if (gameStatusEl) gameStatusEl.textContent = message;
+        // Sound is picked from the same authoritative `outcome` used for
+        // stats/leaderboard above — never from `message` text — for the
+        // same reason spelled out in the BUG FIX note at the top of this
+        // function: matching substrings in a user-facing string silently
+        // breaks the moment that string is reworded or translated.
         if (!isMuted) {
-            if (message.includes('wins')) {
-                if (actualIsWin) {
-                    sounds['game-win'].play();
-                } else {
-                    sounds['game-lose'].play();
-                }
-            } else if (message.includes('Draw')) {
+            if (outcome === 'win') {
+                sounds['game-win'].play();
+            } else if (outcome === 'loss') {
+                sounds['game-lose'].play();
+            } else if (outcome === 'draw') {
                 sounds['game-draw'].play();
             } else {
                 sounds['game-end'].play();
@@ -5362,7 +5365,13 @@ document.addEventListener('DOMContentLoaded', function() {
                         wins: 0,
                         losses: 0,
                         draws: 0,
-                        winRate: 0
+                        winRate: 0,
+                        totalHintsUsed: 0,
+                        totalUndosUsed: 0,
+                        totalThreatsUsed: 0,
+                        totalExtraTimeUsed: 0,
+                        currentStreak: 0,
+                        bestStreak: 0
                     },
                     byDifficulty: {
                         easy: { gamesPlayed: 0, wins: 0, losses: 0, draws: 0, bestTime: null, fastestWin: null },
@@ -5374,7 +5383,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         result: '',
                         timeUsed: '',
                         moves: 0,
-                        difficulty: ''
+                        difficulty: '',
+                        hintsUsed: 0,
+                        undosUsed: 0,
+                        threatsUsed: 0,
+                        extraTimeUsed: 0
                     }
                 };
                 saveComprehensiveStats();
