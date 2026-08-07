@@ -1,3 +1,28 @@
+# Security headers, applied to every response. Values were chosen by
+# reading what script.js/index.html actually load (chess.js from
+# jsdelivr, i18next from unpkg, howler + font-awesome from cdnjs, the
+# Pi SDK + its auth flow from minepi.com domains, chess piece images
+# from images.chesscomfiles.com, and the Stockfish engine which is
+# fetched as text from cdnjs and run in a Worker via a blob: URL — see
+# createStockfishWorker() in script.js). If the Pi SDK opens additional
+# subdomains for auth in the future, browser devtools will show a CSP
+# violation for the blocked domain and it can be added to connect-src/
+# frame-src below.
+#
+# 'unsafe-inline' is kept for script-src/style-src because index.html
+# has two small inline <script> blocks (device-class detection, Pi.init)
+# and several inline style="" attributes — removing it would need those
+# refactored out first (to external files or nonces). It still blocks
+# an attacker's script/iframe from loading from an arbitrary outside
+# domain, which is the main thing CSP buys here.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://sdk.minepi.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: https://images.chesscomfiles.com; font-src 'self' data: https://cdnjs.cloudflare.com; connect-src 'self' https://cdnjs.cloudflare.com https://*.minepi.com; worker-src 'self' blob:; frame-src https://*.minepi.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+
 # Long-term caching for the game's sound effects (including the combined
 # sprite file). These never change once shipped (a new sound = a new file
 # name), so it's safe to let browsers cache them for a full year instead of
