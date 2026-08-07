@@ -16,6 +16,12 @@ const LOCKABLE_LEVELS = ['medium', 'hard', 'expert']; // 'easy' is free by defau
 const LOCKABLE_THEMES = ['green', 'pink', 'blue'];      // 'brown' is free by default
 const LOCKABLE_PIECE_SETS = ['wood', 'glass', 'marble']; // 'neo' is free by default
 
+// Full free-progression order (mirrors LEVEL_SEQUENCE in script.js). Used
+// by submit-score.js to determine which level a verified win at
+// `difficulty` earns next, and by start-game.js to recognize that earned
+// unlock as real entitlement (not just purchases).
+const LEVEL_SEQUENCE = ['easy', 'medium', 'hard', 'expert'];
+
 const UNLOCK_PRICE_USD = 0.70;
 const BUNDLE_DISCOUNT_RATE = 0.15;
 const REFILL_PRICE_USD = 0.006;
@@ -123,6 +129,7 @@ module.exports = {
     LOCKABLE_LEVELS,
     LOCKABLE_THEMES,
     LOCKABLE_PIECE_SETS,
+    LEVEL_SEQUENCE,
     PREMIUM_MONTHLY_DAYS,
     PREMIUM_YEARLY_DAYS,
     resolveProduct,
