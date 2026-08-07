@@ -36,7 +36,23 @@ const PRICE_TOLERANCE_RATIO = 0.5; // accept amounts down to 50% of expected
 // Maps a Pi payment's metadata.productId to what it grants. Returns null
 // for anything unrecognized — callers must treat that as "reject the
 // payment", not "grant nothing but still mark it complete".
-function resolveProduct(productId) {
+//
+// `context` (optional) carries the player's CURRENT unlockedLevels/
+// unlockedThemes/unlockedPieceSets, read server-side from their stored
+// progress by the caller (approve.js) — never from the client. It's only
+// used for bundle products, to price them against how many items are
+// *actually* still locked for this specific player right now.
+//
+// BUG FIX: this used to always price every bundle as if only a single item
+// were still locked (bundleUsd(1)), regardless of the real count, because
+// the count wasn't known from productId alone. Combined with the 50%
+// PRICE_TOLERANCE_RATIO below, that meant a player with all 3 items in a
+// category still locked could unlock the entire category for as little as
+// ~17% of its real price (bundleUsd(1) * 0.5, instead of bundleUsd(3) *
+// tolerance) simply by tampering with the client to request a smaller Pi
+// payment for the same productId — the server had no way to catch it.
+// Now the expected price is computed from the player's real locked count.
+function resolveProduct(productId, context = {}) {
     if (typeof productId !== 'string') return null;
 
     if (productId === 'premium_monthly') {
@@ -50,18 +66,13 @@ function resolveProduct(productId) {
     }
 
     if (productId === 'unlock_all-levels') {
-        // expectedUsd anchors to the SMALLEST possible bundle (only 1 item
-        // still locked) — the actual charge depends on how many were
-        // locked for this player when they bought it, which we don't know
-        // from productId alone, so this is a floor, not an exact price.
-        // Any real bundle purchase (1..N items) prices at or above this.
-        return { kind: 'bundle', category: 'levels', items: LOCKABLE_LEVELS, expectedUsd: bundleUsd(1) };
+        return buildBundleProduct('levels', LOCKABLE_LEVELS, context.unlockedLevels);
     }
     if (productId === 'unlock_all-themes') {
-        return { kind: 'bundle', category: 'themes', items: LOCKABLE_THEMES, expectedUsd: bundleUsd(1) };
+        return buildBundleProduct('themes', LOCKABLE_THEMES, context.unlockedThemes);
     }
     if (productId === 'unlock_all-piecesets') {
-        return { kind: 'bundle', category: 'piecesets', items: LOCKABLE_PIECE_SETS, expectedUsd: bundleUsd(1) };
+        return buildBundleProduct('piecesets', LOCKABLE_PIECE_SETS, context.unlockedPieceSets);
     }
 
     let m = productId.match(/^unlock_level_(.+)$/);
@@ -80,12 +91,20 @@ function resolveProduct(productId) {
     return null;
 }
 
-// A bundle's price can vary with how many items were still locked when the
-// player bought it (1, 2, or 3 remaining). We don't know that count from
-// the productId alone, so bundle purchases are validated with a wider
-// tolerance band (see PRICE_TOLERANCE_RATIO) anchored to the *full*
-// category price computed here as an upper bound, rather than rejected
-// for not matching an exact figure.
+// A bundle's price varies with how many items were still locked when the
+// player bought it (1, 2, or 3 remaining). `items` is the category's full
+// list; `alreadyUnlocked` is what the player currently has (from their
+// real, server-stored progress). expectedUsd is priced against exactly how
+// many are still locked for THIS player right now — not a guess.
+// Floors at 1 item's worth even if our records show none locked (e.g. a
+// stale/partial progress read), so a bundle purchase can never be
+// validated as free.
+function buildBundleProduct(category, items, alreadyUnlocked) {
+    const unlocked = Array.isArray(alreadyUnlocked) ? alreadyUnlocked : [];
+    const lockedCount = Math.max(1, items.filter((item) => !unlocked.includes(item)).length);
+    return { kind: 'bundle', category, items, expectedUsd: bundleUsd(lockedCount) };
+}
+
 function bundleUsd(fullCount) {
     return UNLOCK_PRICE_USD * fullCount * (1 - BUNDLE_DISCOUNT_RATE);
 }
