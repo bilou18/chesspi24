@@ -88,8 +88,23 @@ exports.handler = async (event) => {
 
         // Amount sanity check — see products.js for why this uses a wide
         // tolerance instead of an exact match.
+        //
+        // SECURITY FIX: this used to be `if (piUsdRate && !isPlausibleAmount(...))`,
+        // which treated a failed price lookup (cache empty AND the live
+        // CoinGecko fallback in piPrice.js also down) as "skip the check" —
+        // fail-open. That's a real gap: on any window where both price
+        // sources are unreachable, a tampered client could pay an
+        // arbitrarily small Pi amount for Premium/any unlock and it would
+        // sail through unverified. Now a missing rate fails CLOSED: the
+        // approval is rejected and the player can simply retry once a
+        // price is available again, rather than the payment silently going
+        // through unverified.
         const piUsdRate = await getCachedPiUsdRate();
-        if (piUsdRate && !isPlausibleAmount(amount, product.expectedUsd, piUsdRate)) {
+        if (!piUsdRate) {
+            console.error('approve: no Pi/USD rate available, refusing to approve without an amount check', { productId });
+            return { statusCode: 503, body: JSON.stringify({ error: 'Price feed unavailable — please try again in a moment' }) };
+        }
+        if (!isPlausibleAmount(amount, product.expectedUsd, piUsdRate)) {
             console.error('approve: payment amount implausibly low for product', { productId, amount, expectedUsd: product.expectedUsd, piUsdRate });
             return { statusCode: 400, body: JSON.stringify({ error: 'Payment amount does not match product price' }) };
         }
