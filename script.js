@@ -758,6 +758,49 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fetches the player's server-saved progress (requires a verified Pi
     // identity) and merges it locally. Safe to call even if the player
     // isn't authenticated yet — it just does nothing in that case.
+    //
+    // Shared by fetchProgressFromServer() and syncProgressToServer() below —
+    // see the BUG FIX note on syncProgressToServer() for why merging
+    // (rather than overwriting) matters for both.
+    function mergeServerProgressIn(serverProgress) {
+        (serverProgress.unlockedLevels || []).forEach((lvl) => {
+            if (!playerProgress.unlockedLevels.includes(lvl)) playerProgress.unlockedLevels.push(lvl);
+        });
+        (serverProgress.unlockedThemes || []).forEach((thm) => {
+            if (!playerProgress.unlockedThemes.includes(thm)) playerProgress.unlockedThemes.push(thm);
+        });
+        (serverProgress.unlockedPieceSets || []).forEach((ps) => {
+            if (!playerProgress.unlockedPieceSets.includes(ps)) playerProgress.unlockedPieceSets.push(ps);
+        });
+        (serverProgress.purchasedLevels || []).forEach((lvl) => {
+            if (!playerProgress.purchasedLevels.includes(lvl)) playerProgress.purchasedLevels.push(lvl);
+        });
+        (serverProgress.purchasedThemes || []).forEach((thm) => {
+            if (!playerProgress.purchasedThemes.includes(thm)) playerProgress.purchasedThemes.push(thm);
+        });
+        (serverProgress.purchasedPieceSets || []).forEach((ps) => {
+            if (!playerProgress.purchasedPieceSets.includes(ps)) playerProgress.purchasedPieceSets.push(ps);
+        });
+        (serverProgress.triedLevels || []).forEach((lvl) => {
+            if (!playerProgress.triedLevels.includes(lvl)) playerProgress.triedLevels.push(lvl);
+        });
+        (serverProgress.triedThemes || []).forEach((thm) => {
+            if (!playerProgress.triedThemes.includes(thm)) playerProgress.triedThemes.push(thm);
+        });
+        (serverProgress.triedPieceSets || []).forEach((ps) => {
+            if (!playerProgress.triedPieceSets.includes(ps)) playerProgress.triedPieceSets.push(ps);
+        });
+        // Pi Premium: adopt the server's expiry only if it's later than
+        // what we already have locally, so an active subscription
+        // (bought here or on another device) is never lost by a
+        // stale/older server record overwriting it.
+        const serverPremiumExpiry = typeof serverProgress.premiumExpiresAt === 'number' ? serverProgress.premiumExpiresAt : null;
+        if (serverPremiumExpiry && (!playerProgress.premiumExpiresAt || serverPremiumExpiry > playerProgress.premiumExpiresAt)) {
+            playerProgress.premiumExpiresAt = serverPremiumExpiry;
+            playerProgress.premiumPlan = serverProgress.premiumPlan || playerProgress.premiumPlan;
+        }
+    }
+
     async function fetchProgressFromServer() {
         if (!piAccessToken) return;
         try {
@@ -769,45 +812,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (!response.ok) throw new Error('get-progress returned status ' + response.status);
             const serverProgress = await response.json();
-
-            // Merge (union) with whatever we already have locally, so an
-            // unlock made offline/pre-login is never lost.
-            (serverProgress.unlockedLevels || []).forEach((lvl) => {
-                if (!playerProgress.unlockedLevels.includes(lvl)) playerProgress.unlockedLevels.push(lvl);
-            });
-            (serverProgress.unlockedThemes || []).forEach((thm) => {
-                if (!playerProgress.unlockedThemes.includes(thm)) playerProgress.unlockedThemes.push(thm);
-            });
-            (serverProgress.unlockedPieceSets || []).forEach((ps) => {
-                if (!playerProgress.unlockedPieceSets.includes(ps)) playerProgress.unlockedPieceSets.push(ps);
-            });
-            (serverProgress.purchasedLevels || []).forEach((lvl) => {
-                if (!playerProgress.purchasedLevels.includes(lvl)) playerProgress.purchasedLevels.push(lvl);
-            });
-            (serverProgress.purchasedThemes || []).forEach((thm) => {
-                if (!playerProgress.purchasedThemes.includes(thm)) playerProgress.purchasedThemes.push(thm);
-            });
-            (serverProgress.purchasedPieceSets || []).forEach((ps) => {
-                if (!playerProgress.purchasedPieceSets.includes(ps)) playerProgress.purchasedPieceSets.push(ps);
-            });
-            (serverProgress.triedLevels || []).forEach((lvl) => {
-                if (!playerProgress.triedLevels.includes(lvl)) playerProgress.triedLevels.push(lvl);
-            });
-            (serverProgress.triedThemes || []).forEach((thm) => {
-                if (!playerProgress.triedThemes.includes(thm)) playerProgress.triedThemes.push(thm);
-            });
-            (serverProgress.triedPieceSets || []).forEach((ps) => {
-                if (!playerProgress.triedPieceSets.includes(ps)) playerProgress.triedPieceSets.push(ps);
-            });
-            // Pi Premium: adopt the server's expiry only if it's later than
-            // what we already have locally, so an active subscription
-            // (bought here or on another device) is never lost by a
-            // stale/older server record overwriting it.
-            const serverPremiumExpiry = typeof serverProgress.premiumExpiresAt === 'number' ? serverProgress.premiumExpiresAt : null;
-            if (serverPremiumExpiry && (!playerProgress.premiumExpiresAt || serverPremiumExpiry > playerProgress.premiumExpiresAt)) {
-                playerProgress.premiumExpiresAt = serverPremiumExpiry;
-                playerProgress.premiumPlan = serverProgress.premiumPlan || playerProgress.premiumPlan;
-            }
+            mergeServerProgressIn(serverProgress);
             savePlayerProgressToLocalCache();
             renderLockState();
             renderPremiumState();
@@ -819,6 +824,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Pushes the current local progress up to the server. Safe to call
     // anytime; silently does nothing if we don't have a verified identity.
+    //
+    // BUG FIX: this used to REPLACE playerProgress wholesale with whatever
+    // save-progress.js returned. That's dangerous for unlockedLevels
+    // specifically: save-progress.js deliberately ignores anything the
+    // client sends for that field (see its own comments — it's a paid-
+    // content gate, not a trial record) and recomputes it server-side from
+    // purchases + earned levels. A level just earned by winning is granted
+    // by submit-score.js as a *separate* request that may not have landed
+    // yet (or may be in flight concurrently) when this call's response
+    // comes back — so the old wholesale-replace could, and did, wipe a
+    // just-earned unlock back out of local state (and localStorage) within
+    // moments of granting it. Merging here, the same safe way
+    // fetchProgressFromServer() already does, means this call can only
+    // ever ADD confirmed server state, never remove an unlock the player
+    // already has locally.
     async function syncProgressToServer() {
         if (!piAccessToken) return;
         try {
@@ -830,20 +850,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             if (!response.ok) throw new Error('save-progress returned status ' + response.status);
             const savedProgress = await response.json();
-            // Adopt the server's merged result as the new source of truth.
-            playerProgress = {
-                unlockedLevels: savedProgress.unlockedLevels || playerProgress.unlockedLevels,
-                unlockedThemes: savedProgress.unlockedThemes || playerProgress.unlockedThemes,
-                unlockedPieceSets: savedProgress.unlockedPieceSets || playerProgress.unlockedPieceSets,
-                purchasedLevels: savedProgress.purchasedLevels || playerProgress.purchasedLevels,
-                purchasedThemes: savedProgress.purchasedThemes || playerProgress.purchasedThemes,
-                purchasedPieceSets: savedProgress.purchasedPieceSets || playerProgress.purchasedPieceSets,
-                triedLevels: savedProgress.triedLevels || playerProgress.triedLevels,
-                triedThemes: savedProgress.triedThemes || playerProgress.triedThemes,
-                triedPieceSets: savedProgress.triedPieceSets || playerProgress.triedPieceSets,
-                premiumPlan: typeof savedProgress.premiumPlan !== 'undefined' ? savedProgress.premiumPlan : playerProgress.premiumPlan,
-                premiumExpiresAt: typeof savedProgress.premiumExpiresAt !== 'undefined' ? savedProgress.premiumExpiresAt : playerProgress.premiumExpiresAt
-            };
+            mergeServerProgressIn(savedProgress);
             savePlayerProgressToLocalCache();
             renderLockState();
             renderPremiumState();
@@ -2742,7 +2749,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (playerTime <= 0) {
                     sounds.tenseconds.stop();
                     clearInterval(gameTimer);
-                    endGame(`Time's up! Black wins by timeout!`, false);
+                    endGame(`Time's up! Black wins by timeout!`, false, 'loss');
                 }
             }
         }, 1000);
@@ -2815,19 +2822,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ENHANCED FUNCTION FROM script (8).js - Fixed statistics logic
     // Function to update comprehensive statistics after game ends
-    function updateComprehensiveStats(result, timeUsed, moves, difficulty) {
+    // `result` is the display text only (stored for the "Current Game" tab)
+    // — `outcome` ('win'|'loss'|'draw'), passed explicitly by endGame(), is
+    // what actually drives win/loss/draw counting. See the BUG FIX note on
+    // endGame() for why this used to (unreliably) parse `result` instead.
+    function updateComprehensiveStats(result, outcome, timeUsed, moves, difficulty) {
         // Update overall statistics
         comprehensiveStats.overall.gamesPlayed++;
         
-        // CORRECTED: Fixed the logic for determining game result
-        const isWin = result.includes('wins') && result.includes('White') && !result.includes('surrender');
+        const isWin = outcome === 'win';
         if (isWin) {
             comprehensiveStats.overall.wins++;
             comprehensiveStats.overall.currentStreak = comprehensiveStats.overall.currentStreak > 0 ? comprehensiveStats.overall.currentStreak + 1 : 1;
             comprehensiveStats.overall.bestStreak = Math.max(comprehensiveStats.overall.bestStreak, comprehensiveStats.overall.currentStreak);
-        } else if (result.includes('wins') && result.includes('Black') || 
-                  result.includes('surrender') || 
-                  result.includes('timeout')) {
+        } else if (outcome === 'loss') {
             comprehensiveStats.overall.losses++;
             comprehensiveStats.overall.currentStreak = 0;
         } else {
@@ -2867,9 +2875,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!diffStats.fastestWin || moves < diffStats.fastestWin) {
                     diffStats.fastestWin = moves;
                 }
-            } else if (result.includes('wins') && result.includes('Black') || 
-                      result.includes('surrender') || 
-                      result.includes('timeout')) {
+            } else if (outcome === 'loss') {
                 diffStats.losses++;
             } else {
                 diffStats.draws++;
@@ -2979,7 +2985,22 @@ document.addEventListener('DOMContentLoaded', function() {
    
     // ENHANCED FUNCTION FROM script (8).js - Fixed end game logic
     // Function to end the game and show modal
-    function endGame(message, isWin = false) {
+    //
+    // BUG FIX: win/loss/draw used to be re-derived by matching English
+    // substrings ('wins', 'White', 'Black', 'surrender', 'timeout') inside
+    // `message` — both here and in updateComprehensiveStats() — even though
+    // every call site already knows the real outcome via `isWin`/game state.
+    // Since every other user-facing string in this app goes through
+    // i18next, localizing these particular status strings (a very plausible
+    // future edit) would make every one of those .includes() checks stop
+    // matching, silently turning every win/loss into a recorded 'draw' —
+    // both in local stats and on the Pi leaderboard — with no error
+    // anywhere. `outcome` is now passed explicitly by every call site
+    // instead, so the win/loss/draw record no longer depends on the exact
+    // (possibly-translated) wording of the display message.
+    function endGame(message, isWin = false, outcome = null) {
+        if (!outcome) outcome = isWin ? 'win' : 'loss'; // back-compat fallback for any caller that doesn't pass it
+
         // Stop the Premium attention-flash cycle the moment the match ends,
         // for the same reason as the low-time ticking sound below — no
         // matter why it ended.
@@ -3025,25 +3046,17 @@ document.addEventListener('DOMContentLoaded', function() {
         // Update game statistics
         updateGameStats(message);
         
-        // CORRECTED: Fixed the isWin parameter for surrender case
-        let actualIsWin = isWin;
-        if (message.includes('surrender')) {
-            actualIsWin = false;
-        }
+        // `outcome` is authoritative (passed by the caller, never parsed
+        // from `message` — see the BUG FIX note on endGame() above).
+        let actualIsWin = outcome === 'win';
         
         // Update comprehensive statistics - FIXED: Pass timeUsed instead of duration
-        updateComprehensiveStats(message, timeUsed, gameStats.totalMoves, userSettings.difficulty);
-        // Same win/loss/draw parsing as updateComprehensiveStats above, kept
-        // separate on purpose: this drives what's SENT to the server, while
-        // the server independently trusts only the signed game token for
+        updateComprehensiveStats(message, outcome, timeUsed, gameStats.totalMoves, userSettings.difficulty);
+        // What's SENT to the server for the leaderboard — driven by the
+        // same authoritative `outcome`, not text-matched from `message`.
+        // The server independently trusts only the signed game token for
         // difficulty/timing — see submit-score.js.
-        let leaderboardResult = 'draw';
-        if (message.includes('wins') && message.includes('White') && !message.includes('surrender')) {
-            leaderboardResult = 'win';
-        } else if ((message.includes('wins') && message.includes('Black')) || message.includes('surrender') || message.includes('timeout')) {
-            leaderboardResult = 'loss';
-        }
-        submitScoreToLeaderboard(leaderboardResult);
+        submitScoreToLeaderboard(outcome);
         
         // Show game over modal
         const gameOverModal = document.getElementById('game-over-modal');
@@ -3222,10 +3235,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const winner = game.turn() === 'w' ? 'Black' : 'White';
             status = `Checkmate! ${winner} wins!`;
             isWin = (winner === 'White'); // White player is the user
-            endGame(status, isWin);
+            endGame(status, isWin, isWin ? 'win' : 'loss');
         } else if(game.in_draw()) {
             status = "Draw!";
-            endGame(status, false); // Draw is not a win
+            endGame(status, false, 'draw'); // Draw is not a win
         } else if (game.in_check()) {
             status = `${game.turn() === 'w' ? 'White' : 'Black'} is in check!`;
         } else {
@@ -4674,7 +4687,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const confirmSurrenderBtn = document.getElementById('confirm-surrender');
     if (confirmSurrenderBtn) {
         confirmSurrenderBtn.addEventListener('click', function() {
-            endGame("White surrendered. Black wins!", false);
+            endGame("White surrendered. Black wins!", false, 'loss');
             const surrenderModal = document.getElementById('surrender-modal');
             if (surrenderModal) surrenderModal.style.display = 'none';
             // Removed resumeTimer() call because the game has ended and the timer should not resume
