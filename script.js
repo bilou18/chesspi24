@@ -5829,15 +5829,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Generate PGN content
             const pgnText = game.pgn();
             
-            // Generate filename with timestamp and counter
-            const now = new Date();
-            const timestamp = now.toISOString().slice(0, 10).replace(/-/g, '');
-            
             // Get counter from localStorage or initialize to 1
             let exportCounter = parseInt(localStorage.getItem('chessPiExportCounter') || '0') + 1;
             localStorage.setItem('chessPiExportCounter', exportCounter.toString());
             
-            const filename = `chess-pi-${timestamp}-${exportCounter}.pgn`;
+            const filename = `chesspi-${exportCounter}.pgn`;
             
             // Create blob and download
             const blob = new Blob([pgnText], { type: 'text/plain' });
