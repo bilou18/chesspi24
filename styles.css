@@ -2302,9 +2302,13 @@ html.device-tablet .feature-count {
 /* ===== Pi Premium subscription modal ===== */
 .premium-modal-content {
     text-align: center;
-    margin-top: 5vh;
-    margin-bottom: 5vh;
-    max-height: 90vh;
+    margin-top: 3vh;
+    /* Reserve real space at the bottom for the phone's own on-screen
+       nav bar (gesture bar / back-home-recents), not just plain vh —
+       env(safe-area-inset-bottom) is 0 on devices without one, so this
+       is a no-op there and only kicks in where it's actually needed. */
+    margin-bottom: max(3vh, env(safe-area-inset-bottom, 0px));
+    max-height: min(90vh, calc(94vh - env(safe-area-inset-bottom, 0px)));
     overflow-y: auto;
 }
 .premium-crown-icon {
@@ -2317,7 +2321,7 @@ html.device-tablet .feature-count {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 10px auto 15px;
+    margin: 6px auto 12px;
     box-shadow: 0 4px 10px rgba(209, 151, 30, 0.45);
 }
 .premium-modal-desc {
@@ -2331,7 +2335,7 @@ html.device-tablet .feature-count {
     align-items: stretch;
     justify-content: center;
     gap: 14px;
-    margin: 24px 0 12px;
+    margin: 18px 0 10px;
     flex-wrap: wrap;
 }
 .premium-plan-card {
@@ -2426,7 +2430,8 @@ html.device-tablet .feature-count {
     color: #5b2c99;
     font-weight: 700;
     min-height: 18px;
-    margin: 6px 0 0;
+    line-height: 1.35;
+    margin: 4px 0 0;
 }
 .premium-status.premium-status-expired {
     color: #d1491e;
@@ -2434,7 +2439,7 @@ html.device-tablet .feature-count {
 .premium-fineprint {
     font-size: 12px;
     color: #6b5a8c;
-    margin: 10px auto 0;
+    margin: 8px auto 0;
     max-width: 320px;
 }
 
