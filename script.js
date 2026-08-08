@@ -1173,7 +1173,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     hint: "Hint",
                     undo: "Undo",
                     threats: "Threats",
-                    extraTime: "Extra Time",
+                    extraTime: "+ Time",
                     refill: "Refill",
                     help: "Help",
                     exportPGN: "Exp PGN",
