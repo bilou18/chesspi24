@@ -15,6 +15,7 @@
 const LOCKABLE_LEVELS = ['medium', 'hard', 'expert']; // 'easy' is free by default
 const LOCKABLE_THEMES = ['green', 'pink', 'blue'];      // 'brown' is free by default
 const LOCKABLE_PIECE_SETS = ['wood', 'glass', 'marble']; // 'neo' is free by default
+const LOCKABLE_BOT_PERSONALITIES = ['defensive', 'endgame', 'trickster']; // 'aggressive' is free by default
 
 // Full free-progression order (mirrors LEVEL_SEQUENCE in script.js). Used
 // by submit-score.js to determine which level a verified win at
@@ -80,6 +81,9 @@ function resolveProduct(productId, context = {}) {
     if (productId === 'unlock_all-piecesets') {
         return buildBundleProduct('piecesets', LOCKABLE_PIECE_SETS, context.unlockedPieceSets);
     }
+    if (productId === 'unlock_all-bots') {
+        return buildBundleProduct('botpersonalities', LOCKABLE_BOT_PERSONALITIES, context.unlockedBotPersonalities);
+    }
 
     let m = productId.match(/^unlock_level_(.+)$/);
     if (m && LOCKABLE_LEVELS.includes(m[1])) {
@@ -92,6 +96,10 @@ function resolveProduct(productId, context = {}) {
     m = productId.match(/^unlock_pieceset_(.+)$/);
     if (m && LOCKABLE_PIECE_SETS.includes(m[1])) {
         return { kind: 'single', category: 'piecesets', item: m[1], expectedUsd: UNLOCK_PRICE_USD };
+    }
+    m = productId.match(/^unlock_bot_(.+)$/);
+    if (m && LOCKABLE_BOT_PERSONALITIES.includes(m[1])) {
+        return { kind: 'single', category: 'botpersonalities', item: m[1], expectedUsd: UNLOCK_PRICE_USD };
     }
 
     return null;
@@ -129,6 +137,7 @@ module.exports = {
     LOCKABLE_LEVELS,
     LOCKABLE_THEMES,
     LOCKABLE_PIECE_SETS,
+    LOCKABLE_BOT_PERSONALITIES,
     LEVEL_SEQUENCE,
     PREMIUM_MONTHLY_DAYS,
     PREMIUM_YEARLY_DAYS,
