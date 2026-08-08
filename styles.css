@@ -703,8 +703,13 @@ body {
     box-shadow: 0 0 0 2px rgba(43, 112, 197, 0.3);
 }
 .settings-swatch.locked {
-    filter: grayscale(85%);
-    opacity: 0.6;
+    /* Keep the swatch's own theme/piece-set color fully visible even while
+       locked — the lock badge (see .swatch-lock-badge below) is what
+       communicates "locked", not a grayed-out card. A full desaturating
+       filter here was hiding the theme color on every locked card (i.e.
+       most of them for a non-Premium player), which is what made the
+       Themes grid look uncolored. */
+    opacity: 0.92;
 }
 .settings-swatch .swatch-piece-preview {
     width: 60%;
