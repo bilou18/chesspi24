@@ -5269,7 +5269,16 @@ document.addEventListener('DOMContentLoaded', function() {
         return badge;
     }
 
+    // Selections made in the modal are staged here first — clicking a
+    // swatch only moves the "selected" outline and updates this object;
+    // nothing actually reaches the board/userSettings until the Apply
+    // button is pressed (see the apply-game-settings-btn handler below).
+    // Reset to a fresh copy of userSettings every time the modal opens so
+    // stale picks from a previous visit never leak in.
+    let pendingGameSettings = null;
+
     function renderGameSettingsModal() {
+        const activeSettings = pendingGameSettings || userSettings;
         const themeGrid = document.getElementById('settings-theme-grid');
         const pieceSetGrid = document.getElementById('settings-pieceset-grid');
         if (themeGrid) {
@@ -5279,7 +5288,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const swatch = document.createElement('div');
                 swatch.className = `settings-swatch theme-swatch-${id}`;
                 swatch.classList.toggle('locked', !unlocked);
-                swatch.classList.toggle('selected', userSettings.theme === id);
+                swatch.classList.toggle('selected', activeSettings.theme === id);
                 swatch.setAttribute('role', 'button');
                 swatch.setAttribute('tabindex', '0');
                 swatch.setAttribute('aria-label', `${label} theme${unlocked ? '' : ' (locked)'}`);
@@ -5301,7 +5310,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const swatch = document.createElement('div');
                 swatch.className = 'settings-swatch pieceset-swatch';
                 swatch.classList.toggle('locked', !unlocked);
-                swatch.classList.toggle('selected', userSettings.pieceSet === id);
+                swatch.classList.toggle('selected', activeSettings.pieceSet === id);
                 swatch.setAttribute('role', 'button');
                 swatch.setAttribute('tabindex', '0');
                 swatch.setAttribute('aria-label', `${label} piece set${unlocked ? '' : ' (locked)'}`);
@@ -5348,7 +5357,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const swatch = document.createElement('div');
                 swatch.className = 'settings-swatch bot-swatch';
                 swatch.classList.toggle('locked', !unlocked);
-                swatch.classList.toggle('selected', userSettings.botPersonality === id);
+                swatch.classList.toggle('selected', activeSettings.botPersonality === id);
                 swatch.setAttribute('role', 'button');
                 swatch.setAttribute('tabindex', '0');
                 swatch.setAttribute('aria-label', `${meta.name}${unlocked ? '' : ' (locked)'}`);
@@ -5381,32 +5390,18 @@ document.addEventListener('DOMContentLoaded', function() {
             showUnlockModal(kind === 'theme' ? 'theme' : kind === 'pieceset' ? 'pieceset' : 'bot', id);
             return;
         }
-        if (kind === 'theme') {
-            if (userSettings.theme === id) return;
-            userSettings.theme = id;
-            applyTheme(id);
-        } else if (kind === 'pieceset') {
-            if (userSettings.pieceSet === id) return;
-            userSettings.pieceSet = id;
-            updateBoard();
-        } else if (kind === 'bot') {
-            // Switching personality mid-game is safe to do live: unlike
-            // the difficulty level, the bot's personality is never signed
-            // into the game token or factored into leaderboard scoring
-            // (see requestGameToken/submit-score.js) — it only changes
-            // which roughly-equal-strength candidate move the engine
-            // prefers on the bot's NEXT turn (getPersonalityUciMove is
-            // re-evaluated fresh every move), so there's no game state to
-            // reconcile and nothing to exploit by changing it mid-game.
-            if (userSettings.botPersonality === id) return;
-            userSettings.botPersonality = id;
-            const botTextEl = document.getElementById('bot-text');
-            if (botTextEl) {
-                const meta = BOT_PERSONALITIES[id];
-                botTextEl.textContent = meta ? meta.name : i18next.t('blacksTurn');
-            }
+        // Stage the pick only — nothing is applied to the board/game until
+        // the Apply button is pressed (see apply-game-settings-btn below).
+        if (!pendingGameSettings) {
+            pendingGameSettings = {
+                theme: userSettings.theme,
+                pieceSet: userSettings.pieceSet,
+                botPersonality: userSettings.botPersonality
+            };
         }
-        updateCurrentSettings();
+        const key = kind === 'theme' ? 'theme' : kind === 'pieceset' ? 'pieceSet' : 'botPersonality';
+        if (pendingGameSettings[key] === id) return;
+        pendingGameSettings[key] = id;
         renderGameSettingsModal(); // refresh the "selected" outline
     }
 
@@ -5415,8 +5410,63 @@ document.addEventListener('DOMContentLoaded', function() {
     if (gameSettingsBtn) {
         gameSettingsBtn.addEventListener('click', function() {
             pauseTimer();
+            // Fresh staging copy every time the modal is opened, so picks
+            // left over from a visit that was closed without Applying
+            // never leak into this one.
+            pendingGameSettings = {
+                theme: userSettings.theme,
+                pieceSet: userSettings.pieceSet,
+                botPersonality: userSettings.botPersonality
+            };
             renderGameSettingsModal();
             if (gameSettingsModal) gameSettingsModal.style.display = 'block';
+        });
+    }
+
+    // Apply button: commits whatever is currently staged in
+    // pendingGameSettings to userSettings and pushes it onto the actual
+    // board/game in one go, then closes the modal.
+    const applyGameSettingsBtn = document.getElementById('apply-game-settings-btn');
+    if (applyGameSettingsBtn) {
+        applyGameSettingsBtn.addEventListener('click', function() {
+            if (!pendingGameSettings) {
+                if (gameSettingsModal) gameSettingsModal.style.display = 'none';
+                resumeTimer();
+                return;
+            }
+            let changed = false;
+            if (userSettings.theme !== pendingGameSettings.theme) {
+                userSettings.theme = pendingGameSettings.theme;
+                applyTheme(userSettings.theme);
+                changed = true;
+            }
+            if (userSettings.pieceSet !== pendingGameSettings.pieceSet) {
+                userSettings.pieceSet = pendingGameSettings.pieceSet;
+                updateBoard();
+                changed = true;
+            }
+            if (userSettings.botPersonality !== pendingGameSettings.botPersonality) {
+                // Switching personality mid-game is safe to do live: unlike
+                // the difficulty level, the bot's personality is never
+                // signed into the game token or factored into leaderboard
+                // scoring (see requestGameToken/submit-score.js) — it only
+                // changes which roughly-equal-strength candidate move the
+                // engine prefers on the bot's NEXT turn (getPersonalityUciMove
+                // is re-evaluated fresh every move), so there's no game
+                // state to reconcile and nothing to exploit by changing it
+                // mid-game.
+                userSettings.botPersonality = pendingGameSettings.botPersonality;
+                const botTextEl = document.getElementById('bot-text');
+                if (botTextEl) {
+                    const meta = BOT_PERSONALITIES[userSettings.botPersonality];
+                    botTextEl.textContent = meta ? meta.name : i18next.t('blacksTurn');
+                }
+                changed = true;
+            }
+            if (changed) updateCurrentSettings();
+            pendingGameSettings = null;
+            if (gameSettingsModal) gameSettingsModal.style.display = 'none';
+            resumeTimer();
         });
     }
 
