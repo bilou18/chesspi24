@@ -79,7 +79,8 @@ exports.handler = async (event) => {
         const product = resolveProduct(productId, {
             unlockedLevels: existingProgress && existingProgress.unlockedLevels,
             unlockedThemes: existingProgress && existingProgress.unlockedThemes,
-            unlockedPieceSets: existingProgress && existingProgress.unlockedPieceSets
+            unlockedPieceSets: existingProgress && existingProgress.unlockedPieceSets,
+            unlockedBotPersonalities: existingProgress && existingProgress.unlockedBotPersonalities
         });
         if (!product) {
             console.error('approve: unrecognized productId, refusing to approve:', productId);
