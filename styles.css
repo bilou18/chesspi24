@@ -748,12 +748,13 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-/* Theme swatches: split diagonally between the light/dark square colors so
-   the preview reads as a mini chessboard corner rather than a flat color. */
-.settings-swatch.theme-swatch-brown { background: linear-gradient(135deg, #f0d9b5 50%, #b58863 50%); }
-.settings-swatch.theme-swatch-green { background: linear-gradient(135deg, #eeeed2 50%, #769656 50%); }
-.settings-swatch.theme-swatch-pink { background: linear-gradient(135deg, #f7dfe3 50%, #c68490 50%); }
-.settings-swatch.theme-swatch-blue { background: linear-gradient(135deg, #dee9f5 50%, #6f9fc4 50%); }
+/* Theme swatches: each card is a solid, unmistakable block of its theme's
+   color (not a subtle split) so the Brown/Green/Pink/Blue cards are
+   instantly recognizable as brown/green/pink/blue at a glance. */
+.settings-swatch.theme-swatch-brown { background: linear-gradient(145deg, #d9b78e, #a97a4a); }
+.settings-swatch.theme-swatch-green { background: linear-gradient(145deg, #9fcf7a, #5c8a41); }
+.settings-swatch.theme-swatch-pink { background: linear-gradient(145deg, #f2b4c1, #d16f89); }
+.settings-swatch.theme-swatch-blue { background: linear-gradient(145deg, #9dc6ea, #4f83b3); }
 .settings-swatch.pieceset-swatch {
     background-color: #f4f1ec;
 }
@@ -767,6 +768,20 @@ body {
     color: #2c3e50;
     pointer-events: none;
 }
+/* Apply row: selections in the modal above are staged (just the "selected"
+   outline moves) until this button is pressed, which is what actually
+   commits them to the board/game. */
+.game-settings-apply-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 14px;
+}
+.game-settings-apply-btn {
+    width: 100%;
+    margin: 0;
+    padding: 11px 20px;
+}
+
 .nav-button {
     background-color: var(--primary-color);
     color: white;
