@@ -5253,6 +5253,22 @@ document.addEventListener('DOMContentLoaded', function() {
         { id: 'marble', label: 'Marble' }
     ];
 
+    // Shared badge builder for the three swatch grids below. Only ever
+    // called for items that CAN be locked (the always-free default in each
+    // category — Brown/Neo/Aggressive Attacker — never gets a badge at
+    // all, matching how the theme/pieceset/bot selection pages never show
+    // a lock-overlay on their free default card either). For everything
+    // else: closed grey padlock while locked, open GREEN padlock once
+    // purchased/unlocked — same visual language as setCardLockState() uses
+    // on the selection pages, so "purchased" reads the same way everywhere
+    // in the app instead of just silently losing its badge here.
+    function buildSwatchLockBadge(unlocked) {
+        const badge = document.createElement('div');
+        badge.className = 'swatch-lock-badge' + (unlocked ? ' unlocked-badge' : '');
+        badge.innerHTML = `<i class="fas ${unlocked ? 'fa-lock-open' : 'fa-lock'}"></i>`;
+        return badge;
+    }
+
     function renderGameSettingsModal() {
         const themeGrid = document.getElementById('settings-theme-grid');
         const pieceSetGrid = document.getElementById('settings-pieceset-grid');
@@ -5267,11 +5283,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 swatch.setAttribute('role', 'button');
                 swatch.setAttribute('tabindex', '0');
                 swatch.setAttribute('aria-label', `${label} theme${unlocked ? '' : ' (locked)'}`);
-                if (!unlocked) {
-                    const lockBadge = document.createElement('div');
-                    lockBadge.className = 'swatch-lock-badge';
-                    lockBadge.innerHTML = '<i class="fas fa-lock"></i>';
-                    swatch.appendChild(lockBadge);
+                if (LOCKABLE_THEMES.includes(id)) {
+                    swatch.appendChild(buildSwatchLockBadge(unlocked));
                 }
                 const labelEl = document.createElement('div');
                 labelEl.className = 'swatch-label';
@@ -5314,11 +5327,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 };
                 swatch.appendChild(img);
-                if (!unlocked) {
-                    const lockBadge = document.createElement('div');
-                    lockBadge.className = 'swatch-lock-badge';
-                    lockBadge.innerHTML = '<i class="fas fa-lock"></i>';
-                    swatch.appendChild(lockBadge);
+                if (LOCKABLE_PIECE_SETS.includes(id)) {
+                    swatch.appendChild(buildSwatchLockBadge(unlocked));
                 }
                 const labelEl = document.createElement('div');
                 labelEl.className = 'swatch-label';
@@ -5345,11 +5355,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const icon = document.createElement('i');
                 icon.className = `fas ${meta.icon}`;
                 swatch.appendChild(icon);
-                if (!unlocked) {
-                    const lockBadge = document.createElement('div');
-                    lockBadge.className = 'swatch-lock-badge';
-                    lockBadge.innerHTML = '<i class="fas fa-lock"></i>';
-                    swatch.appendChild(lockBadge);
+                if (LOCKABLE_BOT_PERSONALITIES.includes(id)) {
+                    swatch.appendChild(buildSwatchLockBadge(unlocked));
                 }
                 const labelEl = document.createElement('div');
                 labelEl.className = 'swatch-label';
