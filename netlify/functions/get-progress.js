@@ -21,15 +21,18 @@ const DEFAULT_PROGRESS = {
     unlockedLevels: ['easy'],
     unlockedThemes: ['brown'],
     unlockedPieceSets: ['neo'],
+    unlockedBotPersonalities: ['aggressive'],
     premiumPlan: null,
     premiumExpiresAt: null,
     purchasedLevels: [],
     purchasedThemes: [],
     purchasedPieceSets: [],
+    purchasedBotPersonalities: [],
     earnedLevels: [],
     triedLevels: [],
     triedThemes: [],
-    triedPieceSets: []
+    triedPieceSets: [],
+    triedBotPersonalities: []
 };
 
 exports.handler = async (event) => {
