@@ -510,19 +510,10 @@ document.addEventListener('DOMContentLoaded', function() {
         return usdToPi(PREMIUM_YEARLY_USD);
     }
 
-    // ============================================================
-    // 🧪 DEV TESTING SWITCH — remove/set back to false before shipping.
-    // When true, every paid feature (themes, piece sets, bot personalities,
-    // difficulty levels, Premium-only UI) reports as unlocked, so you can
-    // try the whole paid experience locally without buying anything.
-    // ============================================================
-    const DEV_UNLOCK_ALL = true;
-
     // Returns true while a Pi Premium subscription is active (i.e. its
     // expiry timestamp is still in the future). A lapsed/never-purchased
     // subscription simply returns false — nothing else changes.
     function isPremiumActive() {
-        if (DEV_UNLOCK_ALL) return true;
         return !!(playerProgress.premiumExpiresAt && playerProgress.premiumExpiresAt > Date.now());
     }
     // VIP leaderboard badge: true for an active Premium subscriber, OR a
@@ -3687,6 +3678,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // the Apply flow — updateBoard()'s own onerror chain still runs as a
     // final safety net either way).
     function preloadPieceSetImages(pieceSet) {
+        // Hard safety net: this must never be able to warm the cache for a
+        // set the player hasn't unlocked, even if some future change ever
+        // calls it from somewhere other than the Apply handler above
+        // (which already checks this before calling in). Note this is
+        // belt-and-suspenders only — preloading never unlocks anything by
+        // itself: it just pre-fetches PUBLIC, unauthenticated CDN images
+        // into the browser's normal HTTP cache (same images anyone could
+        // already load directly by URL), it never writes to userSettings,
+        // playerProgress, or the board, and the board only ever renders
+        // whatever userSettings.pieceSet already says — which the Apply
+        // handler only ever sets to something isPieceSetUnlocked() approved.
+        if (!isPieceSetUnlocked(pieceSet)) return Promise.resolve();
         const types = ['p', 'n', 'b', 'r', 'q', 'k'];
         const colors = ['w', 'b'];
         const promises = [];
@@ -5511,6 +5514,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 resumeTimer();
                 return;
             }
+            // Re-verify every pending pick is still something the player is
+            // actually entitled to right now — not just "was unlocked at
+            // the moment they tapped the swatch". Belt-and-suspenders
+            // against a Premium subscription lapsing (or any other unlock
+            // state changing) in the few seconds the modal was open; a
+            // pick that's no longer valid is silently dropped back to
+            // whatever's already applied instead of being pushed to the
+            // board. This also guarantees the preload step below can never
+            // be asked to warm the cache for a piece set the player hasn't
+            // paid for.
+            if (!isThemeUnlocked(pendingGameSettings.theme)) {
+                pendingGameSettings.theme = userSettings.theme;
+            }
+            if (!isPieceSetUnlocked(pendingGameSettings.pieceSet)) {
+                pendingGameSettings.pieceSet = userSettings.pieceSet;
+            }
+            if (!isBotPersonalityUnlocked(pendingGameSettings.botPersonality)) {
+                pendingGameSettings.botPersonality = userSettings.botPersonality;
+            }
             const pieceSetChanging = userSettings.pieceSet !== pendingGameSettings.pieceSet;
             // If the piece set is changing, fetch every piece image for the
             // new set into the browser cache FIRST, while the old set is
@@ -5530,6 +5552,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 // the modal while the images were loading — only proceed if
                 // there's still a pending selection to apply.
                 if (!pendingGameSettings) return;
+                // Re-check once more: a Premium subscription could have
+                // expired in the seconds spent preloading. If it's no
+                // longer valid, fall back to whatever's already applied
+                // rather than committing it.
+                if (!isPieceSetUnlocked(pendingGameSettings.pieceSet)) {
+                    pendingGameSettings.pieceSet = userSettings.pieceSet;
+                }
             }
             let changed = false;
             if (userSettings.theme !== pendingGameSettings.theme) {
