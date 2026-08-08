@@ -32,7 +32,8 @@ function computeIsVip(progress) {
     const premiumActive = typeof progress.premiumExpiresAt === 'number' && progress.premiumExpiresAt > Date.now();
     const hasPurchase = (progress.purchasedLevels && progress.purchasedLevels.length > 0)
         || (progress.purchasedThemes && progress.purchasedThemes.length > 0)
-        || (progress.purchasedPieceSets && progress.purchasedPieceSets.length > 0);
+        || (progress.purchasedPieceSets && progress.purchasedPieceSets.length > 0)
+        || (progress.purchasedBotPersonalities && progress.purchasedBotPersonalities.length > 0);
     return !!(premiumActive || hasPurchase);
 }
 
