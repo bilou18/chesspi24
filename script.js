@@ -1505,6 +1505,7 @@ document.addEventListener('DOMContentLoaded', function() {
     ];
 
     let promoMessageTimer = null;
+    let promoMessageClearTimer = null;
     function showPromoMessage(messages) {
         const promoEl = document.getElementById('promo-message');
         if (!promoEl) return;
@@ -1513,11 +1514,29 @@ document.addEventListener('DOMContentLoaded', function() {
         promoEl.textContent = text;
 
         // Restart the visible state/timer even if one is already showing.
+        // Also cancel any pending "clear the text" from a previous message
+        // fading out — otherwise it could wipe out THIS new text a moment
+        // after we just set it.
         if (promoMessageTimer) clearTimeout(promoMessageTimer);
+        if (promoMessageClearTimer) clearTimeout(promoMessageClearTimer);
         promoEl.classList.add('visible');
         promoMessageTimer = setTimeout(() => {
             promoEl.classList.remove('visible');
             promoMessageTimer = null;
+            // Only actually empty the element once its fade-out transition
+            // has finished (matches the 0.4s in .promo-message's CSS
+            // transition, plus a small buffer). Emptying it collapses its
+            // width to zero, freeing up the space next to the bot name
+            // instead of permanently reserving it — without this, the
+            // element kept its previous text (and therefore its width)
+            // forever after the first time a promo message ever appeared,
+            // which is what was squeezing "Aggressive Attacker" (and any
+            // other bot personality name) onto two lines for the rest of
+            // the game even once the message itself was gone.
+            promoMessageClearTimer = setTimeout(() => {
+                promoEl.textContent = '';
+                promoMessageClearTimer = null;
+            }, 450);
         }, 5000);
     }
    
