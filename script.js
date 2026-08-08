@@ -1980,6 +1980,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setPaymentButtonsBusy(false);
             const modal = document.getElementById('unlock-modal');
             if (modal) modal.style.display = 'none';
+            resumeTimer(); // no-op unless this modal was opened mid-game (e.g. from the live board-settings switcher)
             showCustomAlert('Everything in that category is already unlocked!');
             return;
         }
@@ -2039,6 +2040,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         const modal = document.getElementById('unlock-modal');
                         if (modal) modal.style.display = 'none';
+                        resumeTimer(); // no-op unless this modal was opened mid-game (e.g. from the live board-settings switcher)
                         showCustomAlert(`${displayName} unlocked! Enjoy.`);
                     } catch (error) {
                         console.error('Unlock completion error:', error);
@@ -2095,6 +2097,7 @@ document.addEventListener('DOMContentLoaded', function() {
         unlockCancelBtnEl.addEventListener('click', function() {
             const modal = document.getElementById('unlock-modal');
             if (modal) modal.style.display = 'none';
+            resumeTimer(); // no-op unless this modal was opened mid-game (e.g. from the live board-settings switcher)
             pendingUnlock = null;
         });
     }
@@ -5227,6 +5230,189 @@ document.addEventListener('DOMContentLoaded', function() {
             resumeTimer();
         });
     }
+
+    // ===== Live in-game board theme / piece set switcher =====
+    // Lets the player change to any board theme or piece set they've
+    // already unlocked (purchased individually, or via an active Premium
+    // subscription) WITHOUT resetting the board or losing the current
+    // position — createBoard()/updateBoard() both just redraw from the
+    // existing `game` object, they never touch its actual state. Opening
+    // the modal pauses the game clock the exact same way the Help and
+    // Advice icons already do (pauseTimer() is a no-op on Easy, which has
+    // no clock to pause), so browsing themes never costs the player time.
+    const THEME_SWATCHES = [
+        { id: 'brown', label: 'Brown' },
+        { id: 'green', label: 'Green' },
+        { id: 'pink', label: 'Pink' },
+        { id: 'blue', label: 'Blue' }
+    ];
+    const PIECESET_SWATCHES = [
+        { id: 'neo', label: 'Neo' },
+        { id: 'wood', label: 'Wood' },
+        { id: 'glass', label: 'Glass' },
+        { id: 'marble', label: 'Marble' }
+    ];
+
+    function renderGameSettingsModal() {
+        const themeGrid = document.getElementById('settings-theme-grid');
+        const pieceSetGrid = document.getElementById('settings-pieceset-grid');
+        if (themeGrid) {
+            themeGrid.innerHTML = '';
+            THEME_SWATCHES.forEach(({ id, label }) => {
+                const unlocked = isThemeUnlocked(id);
+                const swatch = document.createElement('div');
+                swatch.className = `settings-swatch theme-swatch-${id}`;
+                swatch.classList.toggle('locked', !unlocked);
+                swatch.classList.toggle('selected', userSettings.theme === id);
+                swatch.setAttribute('role', 'button');
+                swatch.setAttribute('tabindex', '0');
+                swatch.setAttribute('aria-label', `${label} theme${unlocked ? '' : ' (locked)'}`);
+                if (!unlocked) {
+                    const lockBadge = document.createElement('div');
+                    lockBadge.className = 'swatch-lock-badge';
+                    lockBadge.innerHTML = '<i class="fas fa-lock"></i>';
+                    swatch.appendChild(lockBadge);
+                }
+                const labelEl = document.createElement('div');
+                labelEl.className = 'swatch-label';
+                labelEl.textContent = label;
+                swatch.appendChild(labelEl);
+                swatch.addEventListener('click', () => handleGameSettingsSwatchClick('theme', id, unlocked));
+                themeGrid.appendChild(swatch);
+            });
+        }
+        if (pieceSetGrid) {
+            pieceSetGrid.innerHTML = '';
+            PIECESET_SWATCHES.forEach(({ id, label }) => {
+                const unlocked = isPieceSetUnlocked(id);
+                const swatch = document.createElement('div');
+                swatch.className = 'settings-swatch pieceset-swatch';
+                swatch.classList.toggle('locked', !unlocked);
+                swatch.classList.toggle('selected', userSettings.pieceSet === id);
+                swatch.setAttribute('role', 'button');
+                swatch.setAttribute('tabindex', '0');
+                swatch.setAttribute('aria-label', `${label} piece set${unlocked ? '' : ' (locked)'}`);
+                // Preview the set with a white knight — reuses the exact
+                // same CDN paths/fallback chain as the real board pieces
+                // (see getPieceImageSources), so if a set's images are
+                // ever unavailable this preview degrades the same way the
+                // board itself does.
+                const img = document.createElement('img');
+                img.className = 'swatch-piece-preview';
+                img.draggable = false;
+                img.alt = `${label} knight preview`;
+                const sources = getPieceImageSources('n', 'w', id);
+                let sourceIndex = 0;
+                img.src = sources[sourceIndex];
+                img.onerror = function() {
+                    sourceIndex++;
+                    if (sourceIndex < sources.length) {
+                        img.src = sources[sourceIndex];
+                    } else {
+                        img.remove();
+                        swatch.textContent = '♘';
+                    }
+                };
+                swatch.appendChild(img);
+                if (!unlocked) {
+                    const lockBadge = document.createElement('div');
+                    lockBadge.className = 'swatch-lock-badge';
+                    lockBadge.innerHTML = '<i class="fas fa-lock"></i>';
+                    swatch.appendChild(lockBadge);
+                }
+                const labelEl = document.createElement('div');
+                labelEl.className = 'swatch-label';
+                labelEl.textContent = label;
+                swatch.appendChild(labelEl);
+                swatch.addEventListener('click', () => handleGameSettingsSwatchClick('pieceset', id, unlocked));
+                pieceSetGrid.appendChild(swatch);
+            });
+        }
+        const botGrid = document.getElementById('settings-bot-grid');
+        if (botGrid) {
+            botGrid.innerHTML = '';
+            BOT_PERSONALITY_ORDER.forEach((id) => {
+                const meta = BOT_PERSONALITIES[id];
+                if (!meta) return;
+                const unlocked = isBotPersonalityUnlocked(id);
+                const swatch = document.createElement('div');
+                swatch.className = 'settings-swatch bot-swatch';
+                swatch.classList.toggle('locked', !unlocked);
+                swatch.classList.toggle('selected', userSettings.botPersonality === id);
+                swatch.setAttribute('role', 'button');
+                swatch.setAttribute('tabindex', '0');
+                swatch.setAttribute('aria-label', `${meta.name}${unlocked ? '' : ' (locked)'}`);
+                const icon = document.createElement('i');
+                icon.className = `fas ${meta.icon}`;
+                swatch.appendChild(icon);
+                if (!unlocked) {
+                    const lockBadge = document.createElement('div');
+                    lockBadge.className = 'swatch-lock-badge';
+                    lockBadge.innerHTML = '<i class="fas fa-lock"></i>';
+                    swatch.appendChild(lockBadge);
+                }
+                const labelEl = document.createElement('div');
+                labelEl.className = 'swatch-label';
+                labelEl.textContent = meta.name;
+                swatch.appendChild(labelEl);
+                swatch.addEventListener('click', () => handleGameSettingsSwatchClick('bot', id, unlocked));
+                botGrid.appendChild(swatch);
+            });
+        }
+    }
+
+    function handleGameSettingsSwatchClick(kind, id, unlocked) {
+        if (!unlocked) {
+            // Send them straight to the existing paywall for this exact
+            // item instead of leaving a locked swatch as a dead end. Close
+            // this modal first (rather than stacking modals) — the unlock
+            // modal's own close/cancel/complete paths already resume the
+            // timer, so the pause started when this modal opened is still
+            // honored correctly either way.
+            const settingsModal = document.getElementById('game-settings-modal');
+            if (settingsModal) settingsModal.style.display = 'none';
+            showUnlockModal(kind === 'theme' ? 'theme' : kind === 'pieceset' ? 'pieceset' : 'bot', id);
+            return;
+        }
+        if (kind === 'theme') {
+            if (userSettings.theme === id) return;
+            userSettings.theme = id;
+            applyTheme(id);
+        } else if (kind === 'pieceset') {
+            if (userSettings.pieceSet === id) return;
+            userSettings.pieceSet = id;
+            updateBoard();
+        } else if (kind === 'bot') {
+            // Switching personality mid-game is safe to do live: unlike
+            // the difficulty level, the bot's personality is never signed
+            // into the game token or factored into leaderboard scoring
+            // (see requestGameToken/submit-score.js) — it only changes
+            // which roughly-equal-strength candidate move the engine
+            // prefers on the bot's NEXT turn (getPersonalityUciMove is
+            // re-evaluated fresh every move), so there's no game state to
+            // reconcile and nothing to exploit by changing it mid-game.
+            if (userSettings.botPersonality === id) return;
+            userSettings.botPersonality = id;
+            const botTextEl = document.getElementById('bot-text');
+            if (botTextEl) {
+                const meta = BOT_PERSONALITIES[id];
+                botTextEl.textContent = meta ? meta.name : i18next.t('blacksTurn');
+            }
+        }
+        updateCurrentSettings();
+        renderGameSettingsModal(); // refresh the "selected" outline
+    }
+
+    const gameSettingsBtn = document.getElementById('game-settings-btn');
+    const gameSettingsModal = document.getElementById('game-settings-modal');
+    if (gameSettingsBtn) {
+        gameSettingsBtn.addEventListener('click', function() {
+            pauseTimer();
+            renderGameSettingsModal();
+            if (gameSettingsModal) gameSettingsModal.style.display = 'block';
+        });
+    }
+
    
     // Setup hint button
     const hintBtnEl = document.getElementById('hint-btn');
@@ -5595,7 +5781,7 @@ document.addEventListener('DOMContentLoaded', function() {
    
     // Close modals when clicking outside
     window.addEventListener('click', function(event) {
-        const modals = ['import-pgn-modal', 'promotion-modal', 'surrender-modal', 'stats-modal', 'leaderboard-modal'];
+        const modals = ['import-pgn-modal', 'promotion-modal', 'surrender-modal', 'stats-modal', 'leaderboard-modal', 'game-settings-modal'];
        
         modals.forEach(modalId => {
             const modal = document.getElementById(modalId);
