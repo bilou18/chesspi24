@@ -513,7 +513,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Returns true while a Pi Premium subscription is active (i.e. its
     // expiry timestamp is still in the future). A lapsed/never-purchased
     // subscription simply returns false — nothing else changes.
+    // ── DEV/TEST TOGGLE ──────────────────────────────────────────────────
+    // Set to true to bypass ALL paywalls locally (levels, themes, piece
+    // sets, bot personalities, Premium) for testing without spending real
+    // Pi. Every unlock check below ultimately falls back to
+    // isPremiumActive(), so flipping this one flag unlocks everything.
+    // MUST be set back to false before deploying / shipping to real users.
+    const DEV_UNLOCK_ALL = true;
+
     function isPremiumActive() {
+        if (DEV_UNLOCK_ALL) return true;
         return !!(playerProgress.premiumExpiresAt && playerProgress.premiumExpiresAt > Date.now());
     }
     // VIP leaderboard badge: true for an active Premium subscriber, OR a
