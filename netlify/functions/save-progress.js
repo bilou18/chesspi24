@@ -51,21 +51,24 @@
 // no paid content) and is out of scope for this fix.
 const axios = require('axios');
 const { getBlobStore } = require('./_lib/blobStore');
-const { LOCKABLE_LEVELS, LOCKABLE_THEMES, LOCKABLE_PIECE_SETS } = require('./_lib/products');
+const { LOCKABLE_LEVELS, LOCKABLE_THEMES, LOCKABLE_PIECE_SETS, LOCKABLE_BOT_PERSONALITIES } = require('./_lib/products');
 
 const DEFAULT_PROGRESS = {
     unlockedLevels: ['easy'],
     unlockedThemes: ['brown'],
     unlockedPieceSets: ['neo'],
+    unlockedBotPersonalities: ['aggressive'],
     premiumPlan: null,
     premiumExpiresAt: null,
     purchasedLevels: [],
     purchasedThemes: [],
     purchasedPieceSets: [],
+    purchasedBotPersonalities: [],
     earnedLevels: [],
     triedLevels: [],
     triedThemes: [],
-    triedPieceSets: []
+    triedPieceSets: [],
+    triedBotPersonalities: []
 };
 
 function union(a, b) {
@@ -121,6 +124,7 @@ exports.handler = async (event) => {
             triedLevels: union(existingProgress.triedLevels, filterKnown(incomingProgress.triedLevels, LOCKABLE_LEVELS)),
             triedThemes: union(existingProgress.triedThemes, filterKnown(incomingProgress.triedThemes, LOCKABLE_THEMES)),
             triedPieceSets: union(existingProgress.triedPieceSets, filterKnown(incomingProgress.triedPieceSets, LOCKABLE_PIECE_SETS)),
+            triedBotPersonalities: union(existingProgress.triedBotPersonalities, filterKnown(incomingProgress.triedBotPersonalities, LOCKABLE_BOT_PERSONALITIES)),
 
             // Purchase/subscription state: ALWAYS carried forward from
             // what's already stored, NEVER taken from incomingProgress.
@@ -130,6 +134,7 @@ exports.handler = async (event) => {
             purchasedLevels: existingProgress.purchasedLevels || [],
             purchasedThemes: existingProgress.purchasedThemes || [],
             purchasedPieceSets: existingProgress.purchasedPieceSets || [],
+            purchasedBotPersonalities: existingProgress.purchasedBotPersonalities || [],
 
             // Free level progression (beating 'medium' unlocks 'hard', etc.):
             // ALWAYS carried forward from what's already stored, NEVER taken
@@ -152,6 +157,7 @@ exports.handler = async (event) => {
         mergedProgress.unlockedLevels = union(union(DEFAULT_PROGRESS.unlockedLevels, mergedProgress.purchasedLevels), mergedProgress.earnedLevels);
         mergedProgress.unlockedThemes = union(DEFAULT_PROGRESS.unlockedThemes, mergedProgress.purchasedThemes);
         mergedProgress.unlockedPieceSets = union(DEFAULT_PROGRESS.unlockedPieceSets, mergedProgress.purchasedPieceSets);
+        mergedProgress.unlockedBotPersonalities = union(DEFAULT_PROGRESS.unlockedBotPersonalities, mergedProgress.purchasedBotPersonalities);
 
         await store.setJSON(uid, mergedProgress);
 
