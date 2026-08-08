@@ -645,36 +645,46 @@ body {
 /* ===== Live in-game board/piece settings modal ===== */
 .game-settings-modal-content {
     text-align: left;
+    padding: 16px 18px;
+    margin: 5vh auto;
 }
 .game-settings-modal-content h2 {
     text-align: center;
-    margin: 0 0 6px;
+    margin: 0 0 4px;
+    font-size: 19px;
 }
 .game-settings-modal-desc {
     text-align: center;
     color: #666;
-    font-size: 13px;
-    margin: 0 0 18px;
+    font-size: 11px;
+    margin: 0 0 12px;
+    line-height: 1.3;
 }
 .settings-section + .settings-section {
-    margin-top: 18px;
+    margin-top: 10px;
 }
 .settings-section-title {
-    font-size: 14px;
+    font-size: 11px;
     color: #2c3e50;
-    margin: 0 0 10px;
+    margin: 0 0 6px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
+/* Fixed 4-column grid (never auto-fill/wrap) — every category here has
+   exactly 4 items, so this guarantees a single row per section no matter
+   how narrow the screen is; items just shrink to fit instead of a 4th
+   item wrapping onto a second row. That wrapping was exactly what forced
+   the whole modal to scroll before: 3 sections x 2 rows each didn't fit
+   on one screen, but 3 sections x 1 row each does. */
 .settings-swatch-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
 }
 .settings-swatch {
     position: relative;
     aspect-ratio: 1 / 1;
-    border-radius: 10px;
+    border-radius: 8px;
     border: 2px solid transparent;
     cursor: pointer;
     display: flex;
@@ -697,24 +707,31 @@ body {
     opacity: 0.6;
 }
 .settings-swatch .swatch-piece-preview {
-    width: 70%;
-    height: 70%;
+    width: 60%;
+    height: 60%;
     object-fit: contain;
     pointer-events: none;
 }
 .settings-swatch .swatch-lock-badge {
     position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 20px;
-    height: 20px;
+    top: 2px;
+    right: 2px;
+    width: 15px;
+    height: 15px;
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.6);
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
+    font-size: 8px;
+}
+/* Once purchased/unlocked, buildSwatchLockBadge() in script.js swaps this
+   badge's icon to an open padlock and adds this class — same green used
+   for .lock-overlay.unlocked-badge on the theme/pieceset/bot selection
+   pages, so "you own this" reads identically everywhere in the app. */
+.settings-swatch .swatch-lock-badge.unlocked-badge {
+    background: rgba(39, 174, 96, 0.85);
 }
 .settings-swatch .swatch-label {
     position: absolute;
@@ -723,10 +740,13 @@ body {
     right: 0;
     background: rgba(0, 0, 0, 0.55);
     color: #fff;
-    font-size: 10px;
+    font-size: 8px;
     font-weight: 600;
     text-align: center;
-    padding: 2px 0;
+    padding: 1px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 /* Theme swatches: split diagonally between the light/dark square colors so
    the preview reads as a mini chessboard corner rather than a flat color. */
@@ -740,10 +760,10 @@ body {
 .settings-swatch.bot-swatch {
     background-color: #f4f1ec;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 .settings-swatch.bot-swatch i {
-    font-size: 22px;
+    font-size: 16px;
     color: #2c3e50;
     pointer-events: none;
 }
