@@ -205,10 +205,10 @@ exports.handler = async (event) => {
                     : null;
                 if (nextLevel) {
                     const base = progress || {
-                        unlockedLevels: ['easy'], unlockedThemes: ['brown'], unlockedPieceSets: ['neo'],
+                        unlockedLevels: ['easy'], unlockedThemes: ['brown'], unlockedPieceSets: ['neo'], unlockedBotPersonalities: ['aggressive'],
                         premiumPlan: null, premiumExpiresAt: null,
-                        purchasedLevels: [], purchasedThemes: [], purchasedPieceSets: [],
-                        earnedLevels: [], triedLevels: [], triedThemes: [], triedPieceSets: []
+                        purchasedLevels: [], purchasedThemes: [], purchasedPieceSets: [], purchasedBotPersonalities: [],
+                        earnedLevels: [], triedLevels: [], triedThemes: [], triedPieceSets: [], triedBotPersonalities: []
                     };
                     const alreadyUnlocked = Array.isArray(base.unlockedLevels) && base.unlockedLevels.includes(nextLevel);
                     if (!alreadyUnlocked) {
@@ -229,7 +229,8 @@ exports.handler = async (event) => {
         const hasPurchase = !!(progress && (
             (progress.purchasedLevels && progress.purchasedLevels.length > 0) ||
             (progress.purchasedThemes && progress.purchasedThemes.length > 0) ||
-            (progress.purchasedPieceSets && progress.purchasedPieceSets.length > 0)
+            (progress.purchasedPieceSets && progress.purchasedPieceSets.length > 0) ||
+            (progress.purchasedBotPersonalities && progress.purchasedBotPersonalities.length > 0)
         ));
         const isVip = premiumActive || hasPurchase;
 
