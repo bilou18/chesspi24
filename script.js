@@ -519,7 +519,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Pi. Every unlock check below ultimately falls back to
     // isPremiumActive(), so flipping this one flag unlocks everything.
     // MUST be set back to false before deploying / shipping to real users.
-    const DEV_UNLOCK_ALL = true;
+    const DEV_UNLOCK_ALL = false;
 
     function isPremiumActive() {
         if (DEV_UNLOCK_ALL) return true;
