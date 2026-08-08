@@ -763,7 +763,11 @@ body {
     flex-direction: column;
     gap: 2px;
 }
-.settings-swatch.bot-swatch i {
+/* Direct child only — this must NOT also match the lock badge's own <i>
+   (nested one level deeper inside .swatch-lock-badge), otherwise the lock
+   icon inherits this 16px/dark styling instead of the small white/green
+   badge look shared with the theme and piece-set swatches. */
+.settings-swatch.bot-swatch > i {
     font-size: 16px;
     color: #2c3e50;
     pointer-events: none;
@@ -987,6 +991,7 @@ body {
     margin: 0 auto;
     box-sizing: border-box;
     overflow: visible;
+    position: relative;
 }
 /* The actual visible "pill" - sized to fit its own content only. Never
    shrinks below its natural width (flex-shrink: 0) — previously the
@@ -1029,8 +1034,19 @@ body {
 }
 /* Motivational promo message that briefly appears next to the Bot AI
    indicator (e.g. when features run out, or time is almost up). */
+/* Motivational promo message that briefly appears next to the Bot AI
+   indicator (e.g. when features run out, or time is almost up).
+   Positioned absolutely (anchored to the row's right edge, vertically
+   centered on the pill) so it floats OVER the layout instead of
+   participating in it — its own height (it can wrap onto 2 lines on
+   narrow screens) used to add to .side-indicator-row's flex height and
+   push the whole board down for as long as it was visible; as an overlay
+   it can never do that, no matter how much text it wraps to. */
 .promo-message {
-    margin-left: 10px;
+    position: absolute;
+    top: 50%;
+    right: 0;
+    margin-left: 0;
     padding: 6px 12px;
     background: linear-gradient(135deg, #8247e5, #5b2c99);
     color: #fff;
@@ -1040,15 +1056,17 @@ body {
     border-radius: 14px;
     box-shadow: 0 2px 8px rgba(91, 44, 153, 0.4);
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-50%) translateY(-4px);
     pointer-events: none;
     transition: opacity 0.4s ease, transform 0.4s ease;
-    max-width: 65%;
+    max-width: 60%;
     overflow-wrap: break-word;
+    text-align: right;
+    z-index: 30;
 }
 .promo-message.visible {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(-50%) translateY(0);
 }
 .top-controls {
     display: flex;
