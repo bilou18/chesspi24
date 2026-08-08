@@ -225,6 +225,9 @@
                             <div class="game-timer-display" id="game-timer-display">15:00</div>
                         </div>
                         <div class="top-controls">
+                            <div class="control-icon" id="game-settings-btn" role="button" tabindex="0" aria-label="Change board theme or piece set">
+                                <i class="fas fa-sliders"></i>
+                            </div>
                             <div class="control-icon" id="advice-btn" role="button" tabindex="0" aria-label="Show advice">
                                 <i class="fas fa-magnifying-glass-chart"></i>
                             </div>
@@ -629,6 +632,31 @@
                     <p>Are you sure you want to surrender?</p>
                     <button id="confirm-surrender" class="nav-button">Surrender</button>
                     <button id="cancel-surrender" class="nav-button">Cancel</button>
+                </div>
+            </div>
+            <!-- Live board settings modal: lets the player switch to any
+                 board theme / piece set they've already unlocked while a
+                 game is in progress, without resetting the board or losing
+                 the position. Locked items are shown too (grayed out, with
+                 a lock badge) so tapping one is a shortcut straight to the
+                 existing unlock modal instead of a dead end. -->
+            <div id="game-settings-modal" class="modal">
+                <div class="modal-content game-settings-modal-content">
+                    <span class="close"><i class="fas fa-xmark"></i></span>
+                    <h2>Board & Pieces</h2>
+                    <p class="game-settings-modal-desc">Changes apply instantly — your game continues exactly where it is.</p>
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Board Theme</h3>
+                        <div class="settings-swatch-grid" id="settings-theme-grid"></div>
+                    </div>
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Piece Set</h3>
+                        <div class="settings-swatch-grid" id="settings-pieceset-grid"></div>
+                    </div>
+                    <div class="settings-section">
+                        <h3 class="settings-section-title">Bot Personality</h3>
+                        <div class="settings-swatch-grid" id="settings-bot-grid"></div>
+                    </div>
                 </div>
             </div>
         </div>
