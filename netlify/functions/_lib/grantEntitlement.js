@@ -17,15 +17,18 @@ const DEFAULT_PROGRESS = {
     unlockedLevels: ['easy'],
     unlockedThemes: ['brown'],
     unlockedPieceSets: ['neo'],
+    unlockedBotPersonalities: ['aggressive'],
     premiumPlan: null,
     premiumExpiresAt: null,
     purchasedLevels: [],
     purchasedThemes: [],
     purchasedPieceSets: [],
+    purchasedBotPersonalities: [],
     earnedLevels: [],
     triedLevels: [],
     triedThemes: [],
-    triedPieceSets: []
+    triedPieceSets: [],
+    triedBotPersonalities: []
 };
 
 function union(a, b) {
@@ -43,15 +46,18 @@ async function grantEntitlement(uid, product) {
         unlockedLevels: [...(existing.unlockedLevels || DEFAULT_PROGRESS.unlockedLevels)],
         unlockedThemes: [...(existing.unlockedThemes || DEFAULT_PROGRESS.unlockedThemes)],
         unlockedPieceSets: [...(existing.unlockedPieceSets || DEFAULT_PROGRESS.unlockedPieceSets)],
+        unlockedBotPersonalities: [...(existing.unlockedBotPersonalities || DEFAULT_PROGRESS.unlockedBotPersonalities)],
         premiumPlan: existing.premiumPlan || null,
         premiumExpiresAt: typeof existing.premiumExpiresAt === 'number' ? existing.premiumExpiresAt : null,
         purchasedLevels: [...(existing.purchasedLevels || [])],
         purchasedThemes: [...(existing.purchasedThemes || [])],
         purchasedPieceSets: [...(existing.purchasedPieceSets || [])],
+        purchasedBotPersonalities: [...(existing.purchasedBotPersonalities || [])],
         earnedLevels: [...(existing.earnedLevels || [])],
         triedLevels: [...(existing.triedLevels || [])],
         triedThemes: [...(existing.triedThemes || [])],
-        triedPieceSets: [...(existing.triedPieceSets || [])]
+        triedPieceSets: [...(existing.triedPieceSets || [])],
+        triedBotPersonalities: [...(existing.triedBotPersonalities || [])]
     };
 
     if (product.kind === 'premium') {
@@ -81,8 +87,10 @@ async function grantEntitlement(uid, product) {
 }
 
 function capitalize(categoryKey) {
-    // 'levels' -> 'Levels', 'themes' -> 'Themes', 'piecesets' -> 'PieceSets'
+    // 'levels' -> 'Levels', 'themes' -> 'Themes', 'piecesets' -> 'PieceSets',
+    // 'botpersonalities' -> 'BotPersonalities'
     if (categoryKey === 'piecesets') return 'PieceSets';
+    if (categoryKey === 'botpersonalities') return 'BotPersonalities';
     return categoryKey.charAt(0).toUpperCase() + categoryKey.slice(1);
 }
 
