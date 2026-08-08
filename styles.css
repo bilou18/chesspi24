@@ -100,11 +100,11 @@ body {
         margin-bottom: 4px;
     }
     .game-info-container {
-        padding: 3px 8px;
+        padding: 3px 12px;
         margin-bottom: 4px;
     }
     .controls-bottom {
-        padding: 4px 2px;
+        padding: 4px 10px;
         gap: 1px;
     }
     .control-icon {
@@ -474,9 +474,12 @@ body {
     display: flex;
     justify-content: space-around; 
     align-items: center;
-    padding: 10px 5px; 
+    padding: 10px 16px; 
     background-color: white;
-    border-radius: 10px;
+    /* Fully rounded "stadium/pill" bar, matching .game-info-container
+       above — extra horizontal padding (16px vs the old 5px) keeps the
+       end buttons from crowding the now much more rounded corners. */
+    border-radius: 999px;
     margin-top: 5px;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
     flex-shrink: 0;
@@ -490,16 +493,23 @@ body {
     flex-direction: column;
     align-items: center;
     cursor: pointer;
-    padding: 8px 4px;
-    border-radius: 8px;
-    transition: background-color 0.2s;
+    padding: 8px 6px;
+    /* Rounded pill-shaped button "well" around each icon+label, always
+       visible (not just on hover) — matches the reference bottom-nav
+       style where every entry sits in its own soft rounded button. */
+    border-radius: 999px;
+    background-color: #f4f6f9;
+    transition: background-color 0.2s, transform 0.15s ease;
     position: relative;
     flex: 1; 
     max-width: 80px; 
 }
 
 .control-icon:hover {
-    background-color: #f0f0f0;
+    background-color: #e9edf3;
+}
+.control-icon:active {
+    transform: scale(0.95);
 }
 .control-icon i {
     font-size: 16px;
@@ -978,9 +988,12 @@ body {
     width: 100%;
     max-width: 650px;
     margin: 0 auto 10px auto;
-    padding: 5px 10px;
+    padding: 5px 14px;
     background-color: white;
-    border-radius: 15px;
+    /* Fully rounded "stadium/pill" bar (large radius always clips to a
+       true pill regardless of the bar's actual height) instead of the
+       previous mild 15px corner rounding. */
+    border-radius: 999px;
     box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
     z-index: 20;
     position: relative;
@@ -1163,7 +1176,7 @@ body {
     }
 /* ---- START OF MODIFICATION ---- */
     .controls-bottom {
-        padding: 6px 2px;
+        padding: 6px 10px;
         gap: 1px; 
     }
 /* ---- END OF MODIFICATION ---- */
