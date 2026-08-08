@@ -493,10 +493,19 @@ document.addEventListener('DOMContentLoaded', function() {
         return usdToPi(PREMIUM_YEARLY_USD);
     }
 
+    // ============================================================
+    // 🧪 DEV TESTING SWITCH — remove/set back to false before shipping.
+    // When true, every paid feature (themes, piece sets, bot personalities,
+    // difficulty levels, Premium-only UI) reports as unlocked, so you can
+    // try the whole paid experience locally without buying anything.
+    // ============================================================
+    const DEV_UNLOCK_ALL = true;
+
     // Returns true while a Pi Premium subscription is active (i.e. its
     // expiry timestamp is still in the future). A lapsed/never-purchased
     // subscription simply returns false — nothing else changes.
     function isPremiumActive() {
+        if (DEV_UNLOCK_ALL) return true;
         return !!(playerProgress.premiumExpiresAt && playerProgress.premiumExpiresAt > Date.now());
     }
     // VIP leaderboard badge: true for an active Premium subscriber, OR a
