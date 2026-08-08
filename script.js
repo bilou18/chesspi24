@@ -3677,6 +3677,41 @@ document.addEventListener('DOMContentLoaded', function() {
         return [chesscomUrl, ...cburnettUrls];
     }
 
+    // Preloads every piece image (6 types x 2 colors) for a given piece set
+    // before it's ever put on the board. updateBoard() rebuilds every
+    // square with a fresh <img src="..."> — without this, each of those 32
+    // images finishes downloading at a slightly different moment, so the
+    // player visibly watches the set change piece-by-piece instead of all
+    // at once. Resolves once every image has either loaded or exhausted
+    // its fallback chain (never rejects, so a slow/broken image can't hang
+    // the Apply flow — updateBoard()'s own onerror chain still runs as a
+    // final safety net either way).
+    function preloadPieceSetImages(pieceSet) {
+        const types = ['p', 'n', 'b', 'r', 'q', 'k'];
+        const colors = ['w', 'b'];
+        const promises = [];
+        types.forEach((type) => {
+            colors.forEach((color) => {
+                const sources = getPieceImageSources(type, color, pieceSet);
+                promises.push(new Promise((resolve) => {
+                    let sourceIndex = 0;
+                    const img = new Image();
+                    img.onload = () => resolve();
+                    img.onerror = () => {
+                        sourceIndex++;
+                        if (sourceIndex < sources.length) {
+                            img.src = sources[sourceIndex];
+                        } else {
+                            resolve(); // give up quietly — same fallback chain updateBoard() already has
+                        }
+                    };
+                    img.src = sources[sourceIndex];
+                }));
+            });
+        });
+        return Promise.all(promises);
+    }
+
     function createPieceElement(type, color, pieceSet) {
         const pieceElement = document.createElement('div');
         pieceElement.classList.add('piece');
@@ -5469,11 +5504,32 @@ document.addEventListener('DOMContentLoaded', function() {
     // board/game in one go, then closes the modal.
     const applyGameSettingsBtn = document.getElementById('apply-game-settings-btn');
     if (applyGameSettingsBtn) {
-        applyGameSettingsBtn.addEventListener('click', function() {
+        const applyBtnDefaultLabel = applyGameSettingsBtn.textContent;
+        applyGameSettingsBtn.addEventListener('click', async function() {
             if (!pendingGameSettings) {
                 if (gameSettingsModal) gameSettingsModal.style.display = 'none';
                 resumeTimer();
                 return;
+            }
+            const pieceSetChanging = userSettings.pieceSet !== pendingGameSettings.pieceSet;
+            // If the piece set is changing, fetch every piece image for the
+            // new set into the browser cache FIRST, while the old set is
+            // still showing normally — so the actual swap below (once
+            // everything's ready) is instant instead of trickling in piece
+            // by piece as each image finishes downloading.
+            if (pieceSetChanging) {
+                applyGameSettingsBtn.disabled = true;
+                applyGameSettingsBtn.textContent = 'Loading…';
+                try {
+                    await preloadPieceSetImages(pendingGameSettings.pieceSet);
+                } finally {
+                    applyGameSettingsBtn.disabled = false;
+                    applyGameSettingsBtn.textContent = applyBtnDefaultLabel;
+                }
+                // The player may have re-opened/changed their mind or closed
+                // the modal while the images were loading — only proceed if
+                // there's still a pending selection to apply.
+                if (!pendingGameSettings) return;
             }
             let changed = false;
             if (userSettings.theme !== pendingGameSettings.theme) {
