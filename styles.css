@@ -848,7 +848,11 @@ body {
     box-sizing: border-box;
     overflow: visible;
 }
-/* The actual visible "pill" - sized to fit its own content only. */
+/* The actual visible "pill" - sized to fit its own content only. Never
+   shrinks below its natural width (flex-shrink: 0) — previously the
+   default flex-shrink:1 let the promo-message next to it (see below)
+   squeeze this pill down, which had nowhere to give except wrapping the
+   bot's name onto two lines. */
 .side-indicator-pill {
     display: flex;
     align-items: center;
@@ -860,6 +864,7 @@ body {
     border-radius: 10px;
     padding: 6px 14px;
     width: fit-content;
+    flex-shrink: 0;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     opacity: 0.55;
     transition: opacity 0.25s ease, box-shadow 0.25s ease;
@@ -872,6 +877,14 @@ body {
     max-width: 160px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Same one-line guarantee as #player-text above, for the bot's name — this
+   is what actually keeps "Aggressive Attacker" (or any bot personality
+   name) from wrapping in the first place; flex-shrink: 0 on the pill above
+   only stops the *pill* from shrinking, not the text inside it from
+   wrapping if there were ever still not enough room. */
+#bot-text {
     white-space: nowrap;
 }
 /* Motivational promo message that briefly appears next to the Bot AI
