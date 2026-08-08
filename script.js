@@ -591,22 +591,40 @@ document.addEventListener('DOMContentLoaded', function() {
     // Refreshes the lock icon/dimming on every difficulty & theme card to
     // match the current playerProgress. Safe to call anytime (page load,
     // after a payment, after a win, after the server sync resolves, etc.).
+    // Toggles a card's locked/unlocked visual state, including swapping
+    // its lock badge between a closed padlock (still locked) and an open
+    // one (purchased/unlocked) — see the .lock-overlay.unlocked-badge rule
+    // in styles.css. Cards that were never locked to begin with (the
+    // free-by-default item in each category) have no .lock-overlay element
+    // at all, so the querySelector below simply finds nothing for them.
+    function setCardLockState(card, unlocked) {
+        card.classList.toggle('locked', !unlocked);
+        const badge = card.querySelector('.lock-overlay');
+        if (!badge) return;
+        const icon = badge.querySelector('i');
+        badge.classList.toggle('unlocked-badge', unlocked);
+        if (icon) {
+            icon.classList.toggle('fa-lock', !unlocked);
+            icon.classList.toggle('fa-lock-open', unlocked);
+        }
+    }
+
     function renderLockState() {
         document.querySelectorAll('.option-card[data-difficulty]').forEach((card) => {
             const level = card.getAttribute('data-difficulty');
-            card.classList.toggle('locked', !isLevelUnlocked(level));
+            setCardLockState(card, isLevelUnlocked(level));
         });
         document.querySelectorAll('.option-card[data-theme]').forEach((card) => {
             const theme = card.getAttribute('data-theme');
-            card.classList.toggle('locked', !isThemeUnlocked(theme));
+            setCardLockState(card, isThemeUnlocked(theme));
         });
         document.querySelectorAll('.option-card[data-piece-set]').forEach((card) => {
             const pieceSet = card.getAttribute('data-piece-set');
-            card.classList.toggle('locked', !isPieceSetUnlocked(pieceSet));
+            setCardLockState(card, isPieceSetUnlocked(pieceSet));
         });
         document.querySelectorAll('.option-card[data-bot-personality]').forEach((card) => {
             const personality = card.getAttribute('data-bot-personality');
-            card.classList.toggle('locked', !isBotPersonalityUnlocked(personality));
+            setCardLockState(card, isBotPersonalityUnlocked(personality));
         });
 
         // Safety net: if the currently-selected difficulty somehow isn't
@@ -2150,7 +2168,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                         const modal = document.getElementById('premium-modal');
                         if (modal) modal.style.display = 'none';
-                        showCustomAlert(`Chess Pi Premium (${planLabel}) is active! Every level, theme, and piece set is unlocked while it lasts.`);
+                        showCustomAlert(`Chess Pi Premium (${planLabel}) is active! Every level, theme, piece set, and bot personality is unlocked while it lasts.`);
                     } catch (error) {
                         console.error('Premium completion error:', error);
                         showCustomAlert('Completion failed: ' + error.message);
