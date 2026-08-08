@@ -642,6 +642,111 @@ body {
 .close:hover {
     color: black;
 }
+/* ===== Live in-game board/piece settings modal ===== */
+.game-settings-modal-content {
+    text-align: left;
+}
+.game-settings-modal-content h2 {
+    text-align: center;
+    margin: 0 0 6px;
+}
+.game-settings-modal-desc {
+    text-align: center;
+    color: #666;
+    font-size: 13px;
+    margin: 0 0 18px;
+}
+.settings-section + .settings-section {
+    margin-top: 18px;
+}
+.settings-section-title {
+    font-size: 14px;
+    color: #2c3e50;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.settings-swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 10px;
+}
+.settings-swatch {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: var(--transition);
+    background-size: cover;
+    background-position: center;
+}
+.settings-swatch:hover {
+    transform: translateY(-2px);
+}
+.settings-swatch.selected {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(43, 112, 197, 0.3);
+}
+.settings-swatch.locked {
+    filter: grayscale(85%);
+    opacity: 0.6;
+}
+.settings-swatch .swatch-piece-preview {
+    width: 70%;
+    height: 70%;
+    object-fit: contain;
+    pointer-events: none;
+}
+.settings-swatch .swatch-lock-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+}
+.settings-swatch .swatch-label {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+    padding: 2px 0;
+}
+/* Theme swatches: split diagonally between the light/dark square colors so
+   the preview reads as a mini chessboard corner rather than a flat color. */
+.settings-swatch.theme-swatch-brown { background: linear-gradient(135deg, #f0d9b5 50%, #b58863 50%); }
+.settings-swatch.theme-swatch-green { background: linear-gradient(135deg, #eeeed2 50%, #769656 50%); }
+.settings-swatch.theme-swatch-pink { background: linear-gradient(135deg, #f7dfe3 50%, #c68490 50%); }
+.settings-swatch.theme-swatch-blue { background: linear-gradient(135deg, #dee9f5 50%, #6f9fc4 50%); }
+.settings-swatch.pieceset-swatch {
+    background-color: #f4f1ec;
+}
+.settings-swatch.bot-swatch {
+    background-color: #f4f1ec;
+    flex-direction: column;
+    gap: 4px;
+}
+.settings-swatch.bot-swatch i {
+    font-size: 22px;
+    color: #2c3e50;
+    pointer-events: none;
+}
 .nav-button {
     background-color: var(--primary-color);
     color: white;
