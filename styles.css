@@ -232,6 +232,16 @@ body {
     font-size: 12px;
     z-index: 2;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    transition: var(--transition);
+}
+/* Once a previously-locked item is purchased/unlocked, renderLockState()
+   in script.js swaps this badge's icon from a closed padlock (fa-lock) to
+   an open one (fa-lock-open) and adds .unlocked-badge, instead of just
+   removing the .locked class from the card and leaving the closed-lock
+   icon showing. Green ties it visually to "purchased" the same way the
+   rest of the UI uses green for success/confirmation. */
+.lock-overlay.unlocked-badge {
+    background: rgba(39, 174, 96, 0.85);
 }
 .option-icon {
     font-size: 3rem;
