@@ -119,12 +119,30 @@ document.addEventListener('DOMContentLoaded', function() {
         if (typeof pauseTimer === 'function') pauseTimer();
     }
 
+    // If a promo/refill toast (see showPromoMessage further down) would
+    // otherwise appear while the custom alert modal is on screen — e.g.
+    // Extra Time hits 0 the same moment "Added 1 minute!" pops up — it
+    // gets stashed here instead of showing immediately, so it never
+    // visibly stacks underneath the alert. Flushed the moment the alert
+    // is dismissed, from whichever path closes it (OK button or tapping
+    // outside).
+    let pendingPromoMessages = null;
+    function dismissCustomAlertModal() {
+        const modal = document.getElementById('custom-alert-modal');
+        if (modal) modal.style.display = 'none';
+        if (typeof resumeTimer === 'function') resumeTimer();
+        if (pendingPromoMessages) {
+            const messages = pendingPromoMessages;
+            pendingPromoMessages = null;
+            showPromoMessage(messages);
+        }
+    }
+
     // Close the window when OK is clicked
     const customAlertOkBtn = document.getElementById('custom-alert-ok');
     if (customAlertOkBtn) {
         customAlertOkBtn.addEventListener('click', function() {
-            document.getElementById('custom-alert-modal').style.display = 'none';
-            if (typeof resumeTimer === 'function') resumeTimer();
+            dismissCustomAlertModal();
         });
     } else {
         console.error('#custom-alert-ok not found in HTML');
@@ -134,8 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('click', function(event) {
         const modal = document.getElementById('custom-alert-modal');
         if (modal && event.target === modal) {
-            modal.style.display = 'none';
-            if (typeof resumeTimer === 'function') resumeTimer();
+            dismissCustomAlertModal();
         }
     });
 
@@ -1516,6 +1533,15 @@ document.addEventListener('DOMContentLoaded', function() {
     let promoMessageTimer = null;
     let promoMessageClearTimer = null;
     function showPromoMessage(messages) {
+        // If the "Added X minute!" (or any other) custom alert is on
+        // screen right now, don't show the toast underneath/behind it —
+        // stash it and let dismissCustomAlertModal() (above) show it the
+        // moment the player closes that alert instead.
+        const alertModal = document.getElementById('custom-alert-modal');
+        if (alertModal && alertModal.style.display === 'block') {
+            pendingPromoMessages = messages;
+            return;
+        }
         const promoEl = document.getElementById('promo-message');
         if (!promoEl) return;
 
@@ -2315,13 +2341,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 userSettings.extraTime--;
                 document.getElementById('extra-time-count').textContent = userSettings.extraTime;
-                updateFeatureButtonsState();
                 if (playerTime > 10) sounds.tenseconds.stop();
 
                 // Update statistics
                 gameStats.extraTimeUsed++;
 
+                // Show the "Added 1 minute!" alert BEFORE recomputing the
+                // feature-button state below — that recompute is what can
+                // trigger the "all features depleted, refill now" toast
+                // (checkRefillButtonState -> showPromoMessage), and having
+                // the alert already open by then is what makes it get
+                // deferred instead of popping up underneath this alert.
                 showCustomAlert(`Added ${extraMinutes} minute of extra time!`);
+                updateFeatureButtonsState();
             } else {
                 showCustomAlert("You've used all your extra time.");
             }
