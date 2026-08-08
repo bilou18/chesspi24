@@ -4,8 +4,10 @@
 // products.js / isPlausibleAmount). Prefers the cache already populated by
 // get-pi-price.js; if nothing has been cached yet (e.g. brand-new deploy,
 // nobody has opened the price modal before the very first purchase),
-// falls back to one direct, short-timeout CoinGecko fetch here rather than
-// giving up.
+// falls back to a live fetch here rather than giving up — CoinGecko first,
+// then CoinMarketCap if CoinGecko fails (same order and same two sources
+// get-pi-price.js uses, so the price a payment is checked against always
+// matches what the client actually displayed).
 //
 // FIX: this file used to be two divergent copies — a simpler cache-only
 // version living here (actually imported by approve.js) and a more
@@ -36,6 +38,25 @@ async function fetchLiveFromCoinGecko() {
     return price;
 }
 
+// Same CoinMarketCap fallback get-pi-price.js uses (see that file's
+// comment header for the full source-priority rationale) — only usable if
+// CMC_API_KEY is configured, since CoinMarketCap requires a registered key
+// unlike CoinGecko's free endpoint.
+async function fetchLiveFromCoinMarketCap() {
+    const apiKey = process.env.CMC_API_KEY;
+    if (!apiKey) throw new Error('CoinMarketCap: CMC_API_KEY not configured');
+    const res = await axios.get('https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest', {
+        params: { symbol: 'PI' },
+        headers: { 'X-CMC_PRO_API_KEY': apiKey },
+        timeout: 5000
+    });
+    const entry = res.data && res.data.data && res.data.data.PI;
+    const item = Array.isArray(entry) ? entry[0] : entry;
+    const price = item && item.quote && item.quote.USD && item.quote.USD.price;
+    if (typeof price !== 'number' || !(price > 0)) throw new Error('CoinMarketCap: unexpected response shape');
+    return price;
+}
+
 // Returns a number (the Pi/USD price) or null if there's truly no way to
 // get one (cache empty AND live fetch failed). Never throws.
 async function getCachedPiUsdRate() {
@@ -51,21 +72,26 @@ async function getCachedPiUsdRate() {
 
     // Nothing usable cached — try one live fetch before giving up, so the
     // amount check isn't left unenforceable just because no one has opened
-    // the price modal yet.
-    try {
-        const price = await fetchLiveFromCoinGecko();
-        // Best-effort: warm the shared cache too, so get-pi-price.js and
-        // future payment checks benefit immediately. Not fatal if this
-        // write fails — we still have the price to return below.
+    // the price modal yet. CoinGecko first (free, no key needed), then
+    // CoinMarketCap as a backup if CoinGecko is down/rate-limited (mirrors
+    // get-pi-price.js's source order exactly, so the price a payment gets
+    // validated against always matches what the client displayed).
+    for (const [source, fetchFn] of [['coingecko', fetchLiveFromCoinGecko], ['coinmarketcap', fetchLiveFromCoinMarketCap]]) {
         try {
-            const store = getBlobStore('pi-price-cache');
-            await store.setJSON(CACHE_KEY, { price, source: 'coingecko', timestamp: Date.now() });
-        } catch (writeErr) {
-            console.error('piPrice: fallback cache write failed:', writeErr.message);
+            const price = await fetchFn();
+            // Best-effort: warm the shared cache too, so get-pi-price.js and
+            // future payment checks benefit immediately. Not fatal if this
+            // write fails — we still have the price to return below.
+            try {
+                const store = getBlobStore('pi-price-cache');
+                await store.setJSON(CACHE_KEY, { price, source, timestamp: Date.now() });
+            } catch (writeErr) {
+                console.error('piPrice: fallback cache write failed:', writeErr.message);
+            }
+            return price;
+        } catch (liveErr) {
+            console.error(`piPrice: live fallback fetch (${source}) failed:`, liveErr.message);
         }
-        return price;
-    } catch (liveErr) {
-        console.error('piPrice: live fallback fetch failed:', liveErr.message);
     }
 
     return null;
