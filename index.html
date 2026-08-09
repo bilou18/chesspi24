@@ -19,12 +19,73 @@
     </script>
     <link rel="icon" href="logo.png" type="image/png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chess.js@0.10.3/chess.min.js"></script>
-    <script src="https://unpkg.com/i18next@latest/dist/umd/i18next.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
-    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-<script>
-  Pi.init({ version: "2.0", sandbox: false });  // Set sandbox: false for production
+    <!-- `defer` on every script below (including script.js at the end of
+         body) is intentional and load-bearing: without it, these five
+         <script> tags are render-blocking, so if any single one of them
+         — most commonly sdk.minepi.com, since Pi Browser's connection to
+         it can be slow/flaky on mobile data — is slow or briefly
+         unreachable, the ENTIRE page stays blank/white until it times out.
+         That is the "stuck on loading" symptom players hit inside Pi
+         Browser. `defer` lets the browser download all of them in
+         parallel in the background while the body renders immediately,
+         then runs them in this same document order (so script.js still
+         sees chess.js/i18next/Howler/Pi already initialized, exactly as
+         before) right before DOMContentLoaded fires. -->
+    <script defer src="https://cdn.jsdelivr.net/npm/chess.js@0.10.3/chess.min.js"></script>
+    <script defer src="https://unpkg.com/i18next@latest/dist/umd/i18next.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <script defer>
+  // sdk.minepi.com is loaded dynamically here (instead of a plain
+  // <script defer src="...">) specifically so a failed/dropped request —
+  // which the comment above already flags as common on Pi Browser's
+  // mobile-data connection — can be retried instead of permanently
+  // leaving `Pi` undefined for the rest of the session (the
+  // "Authentication failed: Pi SDK script not loaded" symptom). A normal
+  // <script> tag only ever tries once.
+  function loadPiSdk(retriesLeft) {
+    return new Promise((resolve, reject) => {
+      const el = document.createElement('script');
+      el.src = 'https://sdk.minepi.com/pi-sdk.js';
+      el.onload = () => resolve();
+      el.onerror = () => {
+        el.remove();
+        if (retriesLeft > 0) {
+          // Short backoff — long enough to ride out a brief blip, short
+          // enough not to noticeably delay real auth/payment use.
+          setTimeout(() => {
+            loadPiSdk(retriesLeft - 1).then(resolve, reject);
+          }, 1500);
+        } else {
+          reject(new Error('Pi SDK script failed to load after retries'));
+        }
+      };
+      document.head.appendChild(el);
+    });
+  }
+
+  window.piInitPromise = loadPiSdk(2) // initial attempt + 2 retries
+    .then(() => {
+      if (typeof Pi === 'undefined') {
+        // Loaded (200 OK) but somehow didn't define window.Pi — treat the
+        // same as a load failure rather than letting downstream code hit
+        // a raw ReferenceError.
+        throw new Error('Pi SDK loaded but window.Pi is undefined');
+      }
+      // Pi.init() is asynchronous — it does internal setup (e.g.
+      // validating the app/session) before the SDK is actually ready to
+      // use. Calling Pi.authenticate()/Pi.createPayment() before that
+      // setup finishes throws "Pi Network SDK was not initialized. Call
+      // init() before any other method." even though init() was already
+      // called — the call just hadn't *finished* yet. We stash this
+      // promise on window so script.js can await it before making any
+      // other Pi.* call, instead of assuming init is done just because
+      // this line already ran.
+      return Pi.init({ version: "2.0", sandbox: false }); // Set sandbox: false for production
+    })
+    .catch((err) => {
+      console.error('Pi SDK unavailable this session (identity/payments will not work):', err);
+      throw err;
+    });
 </script>
     <!-- No cache-busting query string here on purpose: _headers already sets
          styles.css to `max-age=300, must-revalidate`, which is the
@@ -289,8 +350,26 @@
                             <i class="fas fa-upload"></i>
                             <span>Exp PGN</span>
                         </div>
+                        <div class="control-icon" id="puzzles-btn" role="button" tabindex="0" aria-label="Puzzles">
+                            <i class="fas fa-puzzle-piece"></i>
+                            <span>Puzzles</span>
+                        </div>
                     </div>
                 </main>
+            </div>
+            <!-- Puzzle Mode Modal -->
+            <div id="puzzle-modal" class="advice-modal">
+                <div class="advice-content">
+                    <div class="advice-header">
+                        <h2>Puzzles <span id="puzzle-rating" class="puzzle-rating-badge"></span></h2>
+                        <span id="puzzle-close-btn" class="advice-close">&times;</span>
+                    </div>
+                    <div class="puzzle-body">
+                        <div class="chessboard" id="puzzle-chessboard"></div>
+                        <div id="puzzle-feedback" class="puzzle-feedback">Loading puzzle…</div>
+                        <button id="puzzle-next-btn" class="nav-button" style="display:none;">Next Puzzle</button>
+                    </div>
+                </div>
             </div>
             <!-- Features Explanation Modal -->
             <div id="features-modal" class="features-modal">
@@ -725,7 +804,7 @@
             </div>
         </div>
     </div>
-    <script src="script.js"></script>
+    <script defer src="script.js"></script>
 <div id="custom-alert-modal" style="display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.4);">
   <div style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 8px; text-align: center;">
     <p id="custom-alert-message" style="margin-bottom: 20px; font-size: 16px;"></p>
