@@ -1027,6 +1027,20 @@ document.addEventListener('DOMContentLoaded', function() {
         renderPremiumState();
         fetchPiUsdPrice().catch(() => {}); // warm the price cache in the background; never blocks init
         try {
+            // Must await this BEFORE checking `typeof Pi` — the SDK now
+            // loads dynamically with retries (see index.html), so Pi can
+            // still be legitimately undefined here for a couple of
+            // seconds while a retry is in flight, not just when it's
+            // permanently unavailable. Checking too early was returning
+            // early (silently skipping sign-in) even on runs that would
+            // have succeeded a moment later.
+            if (window.piInitPromise) {
+                try {
+                    await window.piInitPromise;
+                } catch (err) {
+                    return; // SDK truly unavailable this session (already logged in index.html)
+                }
+            }
             if (typeof Pi === 'undefined') return; // Pi SDK script didn't load
             // NOTE: intentionally NOT gating this on isPiBrowserEnvironment().
             // That check reads navigator.userAgent, and on a cold load inside
@@ -1038,7 +1052,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // native message bridge), so it's a safe, more reliable gate on
             // its own. isPiBrowserEnvironment() is still used as an extra
             // check specifically around free-trial grants further below.
-            const auth = await Pi.authenticate(['username', 'payments'], resolveIncompletePayment);
+            // Race against a 15s timeout so a stalled connection to Pi's
+            // auth servers can't leave this hanging forever — it just
+            // falls back to local-only progress (caught below) instead.
+            const auth = await Promise.race([
+                Pi.authenticate(['username', 'payments'], resolveIncompletePayment),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Pi.authenticate timed out after 15s')), 15000))
+            ]);
             if (auth && auth.accessToken && auth.user) {
                 piAccessToken = auth.accessToken;
                 piUserUid = auth.user.uid;
@@ -1689,6 +1709,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function authenticate() {
+        // Same fix as initializePiIdentityAndProgress(): must wait for
+        // Pi.init() to resolve before calling Pi.authenticate(), or it can
+        // throw "Pi Network SDK was not initialized" intermittently.
+        if (window.piInitPromise) await window.piInitPromise;
         const scopes = ['username', 'payments'];
         const auth = await Pi.authenticate(scopes, resolveIncompletePayment);
         return auth;
@@ -4654,11 +4678,22 @@ document.addEventListener('DOMContentLoaded', function() {
     //
     // BANDWIDTH: the engine file (~1-2MB) is loaded from a free public CDN
     // (cdnjs / Cloudflare) instead of being hosted on Netlify, so it never
-    // counts against your Netlify bandwidth quota. If the CDN is ever
-    // unreachable, it automatically falls back to a local "stockfish.js"
-    // file in your project root (if you keep one there).
+    // counts against your Netlify bandwidth quota. If that CDN is ever
+    // unreachable, a second independent CDN mirror (jsdelivr) is tried
+    // before anything is ever pulled from Netlify — this is what actually
+    // matters for bandwidth: the local "stockfish.js" fallback file in
+    // this project is ~10MB (much larger than the CDN's minified build),
+    // so every time that path gets hit it costs roughly 5-10x more
+    // bandwidth than a CDN miss would. Two independent CDNs failing at
+    // once is rare, so this local file should now only ever be reached in
+    // a genuine worst case. If you want to shrink that worst case further,
+    // replace the local stockfish.js with the same minified build the CDN
+    // serves (stockfish.min.js, ~1-2MB) instead of a full unminified copy.
     // ===================================================================
-    const STOCKFISH_CDN_URL = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.min.js';
+    const STOCKFISH_CDN_URLS = [
+        'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.min.js',
+        'https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.min.js'
+    ];
     const STOCKFISH_LOCAL_FALLBACK_PATH = 'stockfish.js';
 
     // Wraps a promise with a hard timeout. If the promise hasn't settled by
@@ -4694,20 +4729,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // URL. This is the most compatible way to run a cross-origin script in
     // a Worker (more reliable across browsers than `new Worker(cdnUrl)`
     // directly). The browser's normal HTTP cache (plus our Service Worker)
-    // will cache the CDN response, so this is only a real network fetch once.
+    // will cache each CDN response, so this is only a real network fetch
+    // once per CDN per browser.
+    //
+    // Tries each CDN mirror in order before ever touching the local
+    // fallback file — see the BANDWIDTH comment above for why that
+    // ordering matters.
     async function createStockfishWorker() {
-        try {
-            const response = await fetch(STOCKFISH_CDN_URL, { mode: 'cors' });
-            if (!response.ok) throw new Error('CDN responded with status ' + response.status);
-            const scriptText = await response.text();
-            const blob = new Blob([scriptText], { type: 'application/javascript' });
-            const blobUrl = URL.createObjectURL(blob);
-            return new Worker(blobUrl);
-        } catch (cdnErr) {
-            console.error('Failed to load Stockfish from CDN, trying local fallback file:', cdnErr);
-            // Fallback: try a locally-hosted copy, if one exists in the project.
-            return new Worker(STOCKFISH_LOCAL_FALLBACK_PATH);
+        for (const cdnUrl of STOCKFISH_CDN_URLS) {
+            try {
+                const response = await fetch(cdnUrl, { mode: 'cors' });
+                if (!response.ok) throw new Error('CDN responded with status ' + response.status);
+                const scriptText = await response.text();
+                const blob = new Blob([scriptText], { type: 'application/javascript' });
+                const blobUrl = URL.createObjectURL(blob);
+                return new Worker(blobUrl);
+            } catch (cdnErr) {
+                console.error('Failed to load Stockfish from CDN mirror', cdnUrl, cdnErr);
+            }
         }
+        console.error('All Stockfish CDN mirrors failed, falling back to local file.');
+        // Last resort: a locally-hosted copy, if one exists in the project.
+        return new Worker(STOCKFISH_LOCAL_FALLBACK_PATH);
     }
 
     const StockfishEngine = (function() {
@@ -6291,5 +6334,320 @@ document.addEventListener('DOMContentLoaded', function() {
                 showCustomAlert("Statistics have been reset successfully!");
             }
         });
+    }
+
+    // ============================================================
+    // PUZZLE MODE
+    // ------------------------------------------------------------
+    // Deliberately built as a self-contained module with its own board
+    // (#puzzle-chessboard), its own Chess.js instance (puzzleGame) and
+    // its own click handler — it does NOT touch `game`, `chessboard`,
+    // or handleSquareClick(). Those already carry a lot of state (bot
+    // AI, timer, hints) and reusing them here would risk destabilizing
+    // the main game loop for the sake of a feature that doesn't need
+    // any of that. It DOES reuse createPieceElement()/the .square/.piece
+    // CSS classes so puzzles look identical to the main board for free,
+    // and it reuses showPremiumModal()/showCustomAlert()/isPremiumActive()
+    // for gating and messaging, so Premium behaves identically everywhere.
+    //
+    // Puzzle data/format follows the Lichess Puzzle Database (CC0
+    // licensed: https://database.lichess.org/#puzzles) exactly:
+    //   FEN    = position BEFORE the opponent's setup move.
+    //   moves  = UCI move list. moves[0] is that opponent setup move
+    //            (played automatically); moves[1] is the first move the
+    //            PLAYER must find; moves then alternate opponent/player.
+    // This means a puzzles.json generated straight from the official
+    // lichess_db_puzzle.csv (see tools/build-puzzles.py) drops in with
+    // zero conversion.
+    const PUZZLE_FREE_DAILY_LIMIT = 3;
+    let puzzleState = {
+        allPuzzles: null,       // loaded once from puzzles.json
+        current: null,          // the puzzle object currently loaded
+        chess: null,            // Chess.js instance for the puzzle board
+        playerColor: 'w',
+        moveIndex: 0,           // index into current.moves for the NEXT move
+        solved: false,
+        failed: false
+    };
+
+    function getPuzzleStats() {
+        const today = new Date().toISOString().slice(0, 10);
+        let stats;
+        try {
+            stats = JSON.parse(localStorage.getItem('chessPiPuzzleStats') || 'null');
+        } catch (e) {
+            stats = null;
+        }
+        if (!stats || stats.date !== today) {
+            stats = { date: today, solvedToday: 0, totalSolved: stats ? (stats.totalSolved || 0) : 0, solvedIds: [] };
+        }
+        if (!Array.isArray(stats.solvedIds)) stats.solvedIds = [];
+        return stats;
+    }
+    function savePuzzleStats(stats) {
+        try {
+            localStorage.setItem('chessPiPuzzleStats', JSON.stringify(stats));
+        } catch (e) {
+            console.error('savePuzzleStats failed:', e);
+        }
+    }
+
+    async function loadPuzzlesData() {
+        if (puzzleState.allPuzzles) return puzzleState.allPuzzles;
+        try {
+            const res = await fetch('puzzles.json');
+            if (!res.ok) throw new Error('puzzles.json HTTP ' + res.status);
+            puzzleState.allPuzzles = await res.json();
+        } catch (err) {
+            console.error('Failed to load puzzles.json:', err);
+            puzzleState.allPuzzles = [];
+        }
+        return puzzleState.allPuzzles;
+    }
+
+    // Picks the next puzzle to show: skips ones already solved today where
+    // possible (falls back to a random one if everything's been solved),
+    // and respects the free/premium split + daily free cap.
+    async function pickNextPuzzle() {
+        const all = await loadPuzzlesData();
+        if (!all.length) return null;
+        const stats = getPuzzleStats();
+        const premium = isPremiumActive();
+        const freeExhausted = !premium && stats.solvedToday >= PUZZLE_FREE_DAILY_LIMIT;
+        const eligible = all.filter(p => (premium || p.free) && !(freeExhausted && p.free));
+        const pool = eligible.length ? eligible : all.filter(p => premium || p.free);
+        if (!pool.length) return null;
+        const unsolved = pool.filter(p => !stats.solvedIds.includes(p.id));
+        const chooseFrom = unsolved.length ? unsolved : pool;
+        return chooseFrom[Math.floor(Math.random() * chooseFrom.length)];
+    }
+
+    function createPuzzleBoard() {
+        const board = document.getElementById('puzzle-chessboard');
+        if (!board) return;
+        board.innerHTML = '';
+        const flip = puzzleState.playerColor === 'b';
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const row = flip ? 7 - r : r;
+                const col = flip ? 7 - c : c;
+                const square = document.createElement('div');
+                square.classList.add('square');
+                square.classList.add((row + col) % 2 === 0 ? 'white' : 'black');
+                square.dataset.row = row;
+                square.dataset.col = col;
+                square.tabIndex = 0;
+                square.setAttribute('role', 'button');
+                square.addEventListener('click', () => handlePuzzleSquareClick(row, col));
+                square.addEventListener('keydown', (e) => { if (e.key === 'Enter') handlePuzzleSquareClick(row, col); });
+                board.appendChild(square);
+            }
+        }
+    }
+
+    let puzzleSelectedSquare = null;
+
+    function updatePuzzleBoard() {
+        const currentPieceSet = ['neo', 'wood', 'glass', 'marble'].includes(userSettings.pieceSet) ? userSettings.pieceSet : 'neo';
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const squareName = String.fromCharCode(97 + col) + (8 - row);
+                const piece = puzzleState.chess.get(squareName);
+                const squareEl = document.querySelector(`#puzzle-chessboard .square[data-row="${row}"][data-col="${col}"]`);
+                if (!squareEl) continue;
+                squareEl.innerHTML = '';
+                squareEl.classList.remove('selected', 'legal-move');
+                if (piece) squareEl.appendChild(createPieceElement(piece.type, piece.color, currentPieceSet));
+            }
+        }
+    }
+
+    function clearPuzzleSelection() {
+        puzzleSelectedSquare = null;
+        document.querySelectorAll('#puzzle-chessboard .square').forEach(sq => sq.classList.remove('selected', 'legal-move'));
+    }
+
+    function handlePuzzleSquareClick(row, col) {
+        if (!puzzleState.current || puzzleState.solved) return;
+        const squareName = String.fromCharCode(97 + col) + (8 - row);
+        const piece = puzzleState.chess.get(squareName);
+
+        if (puzzleSelectedSquare) {
+            const from = puzzleSelectedSquare;
+            if (from === squareName) { clearPuzzleSelection(); return; }
+            const attempt = { from, to: squareName, promotion: 'q' };
+            const legal = puzzleState.chess.moves({ square: from, verbose: true })
+                .some(m => m.to === squareName);
+            clearPuzzleSelection();
+            if (!legal) {
+                // Might just be selecting a different one of the player's own pieces.
+                if (piece && piece.color === puzzleState.chess.turn()) {
+                    selectPuzzleSquare(squareName);
+                }
+                return;
+            }
+            attemptPuzzleMove(attempt);
+            return;
+        }
+
+        if (piece && piece.color === puzzleState.chess.turn()) {
+            selectPuzzleSquare(squareName);
+        }
+    }
+
+    function selectPuzzleSquare(squareName) {
+        puzzleSelectedSquare = squareName;
+        const col = squareName.charCodeAt(0) - 97;
+        const row = 8 - parseInt(squareName[1]);
+        const squareEl = document.querySelector(`#puzzle-chessboard .square[data-row="${row}"][data-col="${col}"]`);
+        if (squareEl) squareEl.classList.add('selected');
+        puzzleState.chess.moves({ square: squareName, verbose: true }).forEach(m => {
+            const tCol = m.to.charCodeAt(0) - 97;
+            const tRow = 8 - parseInt(m.to[1]);
+            const tEl = document.querySelector(`#puzzle-chessboard .square[data-row="${tRow}"][data-col="${tCol}"]`);
+            if (tEl) tEl.classList.add('legal-move');
+        });
+    }
+
+    function attemptPuzzleMove(attempt) {
+        const expectedUci = puzzleState.current.moves[puzzleState.moveIndex];
+        const playedUci = attempt.from + attempt.to + (attempt.promotion && isPuzzlePromotion(attempt) ? attempt.promotion : '');
+        const expectedNoPromo = expectedUci.slice(0, 4);
+        const playedNoPromo = playedUci.slice(0, 4);
+
+        if (playedNoPromo !== expectedNoPromo) {
+            const el = document.getElementById('puzzle-feedback');
+            if (el) { el.textContent = 'Not quite — try again.'; el.className = 'puzzle-feedback wrong'; }
+            if (!isMuted && sounds['illegal']) sounds['illegal'].play();
+            return;
+        }
+
+        // Correct — apply it for real (with promotion piece from the puzzle data if any).
+        const promo = expectedUci.length > 4 ? expectedUci[4] : undefined;
+        puzzleState.chess.move({ from: attempt.from, to: attempt.to, promotion: promo || 'q' });
+        updatePuzzleBoard();
+        if (!isMuted && sounds['move-self']) sounds['move-self'].play();
+        puzzleState.moveIndex++;
+        maybeAdvancePuzzle();
+    }
+
+    function isPuzzlePromotion(attempt) {
+        const piece = puzzleState.chess.get(attempt.from);
+        return piece && piece.type === 'p' && (attempt.to[1] === '8' || attempt.to[1] === '1');
+    }
+
+    function maybeAdvancePuzzle() {
+        const moves = puzzleState.current.moves;
+        if (puzzleState.moveIndex >= moves.length) {
+            finishPuzzle(true);
+            return;
+        }
+        // Next move belongs to the opponent — play it automatically after a
+        // short beat so it reads as a reply, not an instant swap.
+        const el = document.getElementById('puzzle-feedback');
+        if (el) { el.textContent = 'Good move!'; el.className = 'puzzle-feedback correct'; }
+        setTimeout(() => {
+            const uci = moves[puzzleState.moveIndex];
+            const from = uci.slice(0, 2), to = uci.slice(2, 4), promo = uci.length > 4 ? uci[4] : undefined;
+            puzzleState.chess.move({ from, to, promotion: promo || 'q' });
+            updatePuzzleBoard();
+            if (!isMuted && sounds['move-opponent']) sounds['move-opponent'].play();
+            puzzleState.moveIndex++;
+            if (puzzleState.moveIndex >= moves.length) {
+                finishPuzzle(true);
+            } else if (el) {
+                el.textContent = 'Your move.';
+                el.className = 'puzzle-feedback';
+            }
+        }, 500);
+    }
+
+    function finishPuzzle(success) {
+        puzzleState.solved = success;
+        const el = document.getElementById('puzzle-feedback');
+        if (success) {
+            if (el) { el.textContent = 'Puzzle solved! 🎉'; el.className = 'puzzle-feedback correct'; }
+            if (!isMuted && sounds['game-win']) sounds['game-win'].play();
+            const stats = getPuzzleStats();
+            if (!stats.solvedIds.includes(puzzleState.current.id)) {
+                stats.solvedIds.push(puzzleState.current.id);
+                stats.solvedToday++;
+                stats.totalSolved++;
+                savePuzzleStats(stats);
+            }
+        }
+        const nextBtn = document.getElementById('puzzle-next-btn');
+        if (nextBtn) nextBtn.style.display = success ? 'inline-block' : 'none';
+    }
+
+    async function loadPuzzleIntoBoard(puzzle) {
+        puzzleState.current = puzzle;
+        puzzleState.chess = new Chess(puzzle.fen);
+        puzzleState.moveIndex = 0;
+        puzzleState.solved = false;
+        // Player plays the side to move AFTER the opponent's automatic
+        // setup move (moves[0]) is applied — i.e. the opposite of whoever
+        // is to move in the raw FEN.
+        puzzleState.playerColor = puzzleState.chess.turn() === 'w' ? 'b' : 'w';
+        createPuzzleBoard();
+        updatePuzzleBoard();
+        const ratingEl = document.getElementById('puzzle-rating');
+        if (ratingEl) ratingEl.textContent = puzzle.rating ? ('~' + puzzle.rating) : '';
+        const nextBtn = document.getElementById('puzzle-next-btn');
+        if (nextBtn) nextBtn.style.display = 'none';
+        const el = document.getElementById('puzzle-feedback');
+        if (el) { el.textContent = 'Find the best move for ' + (puzzleState.playerColor === 'w' ? 'White' : 'Black') + '.'; el.className = 'puzzle-feedback'; }
+
+        // Apply the opponent's automatic setup move (moves[0]) after a
+        // short beat so the player sees the starting position first.
+        setTimeout(() => {
+            const uci = puzzle.moves[0];
+            const from = uci.slice(0, 2), to = uci.slice(2, 4), promo = uci.length > 4 ? uci[4] : undefined;
+            puzzleState.chess.move({ from, to, promotion: promo || 'q' });
+            updatePuzzleBoard();
+            if (!isMuted && sounds['move-opponent']) sounds['move-opponent'].play();
+            puzzleState.moveIndex = 1;
+        }, 400);
+    }
+
+    async function startNextPuzzle() {
+        const puzzle = await pickNextPuzzle();
+        const el = document.getElementById('puzzle-feedback');
+        if (!puzzle) {
+            if (el) { el.textContent = 'No puzzles available right now.'; el.className = 'puzzle-feedback'; }
+            return;
+        }
+        // Gate premium-only puzzles / the daily free cap the same way the
+        // rest of the app gates everything else.
+        if (!puzzle.free && !isPremiumActive()) {
+            showPremiumModal();
+            return;
+        }
+        loadPuzzleIntoBoard(puzzle);
+    }
+
+    async function openPuzzleModal() {
+        const modal = document.getElementById('puzzle-modal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        await startNextPuzzle();
+    }
+
+    function closePuzzleModal() {
+        const modal = document.getElementById('puzzle-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    const puzzlesBtnEl = document.getElementById('puzzles-btn');
+    if (puzzlesBtnEl) {
+        puzzlesBtnEl.addEventListener('click', openPuzzleModal);
+    }
+    const puzzleCloseBtnEl = document.getElementById('puzzle-close-btn');
+    if (puzzleCloseBtnEl) {
+        puzzleCloseBtnEl.addEventListener('click', closePuzzleModal);
+    }
+    const puzzleNextBtnEl = document.getElementById('puzzle-next-btn');
+    if (puzzleNextBtnEl) {
+        puzzleNextBtnEl.addEventListener('click', startNextPuzzle);
     }
 });
