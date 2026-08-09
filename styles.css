@@ -1618,6 +1618,45 @@ html.device-tablet .feature-count {
         padding: 15px;
     }
 }
+
+/* Puzzle Mode */
+.puzzle-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+}
+.puzzle-body .chessboard {
+    width: 100%;
+    max-width: 420px;
+}
+.puzzle-rating-badge {
+    font-size: 0.85rem;
+    font-weight: normal;
+    color: #888;
+    margin-left: 8px;
+}
+.puzzle-feedback {
+    min-height: 1.4em;
+    font-weight: 600;
+    text-align: center;
+    color: #444;
+}
+.puzzle-feedback.correct {
+    color: #2e7d32;
+}
+.puzzle-feedback.wrong {
+    color: #c62828;
+}
+.square.legal-move::after {
+    content: "";
+    position: absolute;
+    width: 28%;
+    height: 28%;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.18);
+    pointer-events: none;
+}
 /* Promotion Modal Styles */
 .promotion-options {
     display: flex;
