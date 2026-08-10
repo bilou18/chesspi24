@@ -1328,7 +1328,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateCurrentSettings();
             applyTheme(userSettings.theme);
             setTimeout(() => {
-                switchPage(2);
+                switchPage(3);
             }, 500);
         });
     });
@@ -1364,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateCurrentSettings();
             updateBoard(); // live-preview the new piece set immediately
             setTimeout(() => {
-                switchPage(3);
+                switchPage(4);
             }, 500);
         });
     });
@@ -1401,7 +1401,7 @@ document.addEventListener('DOMContentLoaded', function() {
             userSettings.botPersonality = clickedBot;
             updateCurrentSettings();
             setTimeout(() => {
-                switchPage(4);
+                switchPage(5);
             }, 500);
         });
     });
@@ -1450,7 +1450,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             setTimeout(() => {
-                switchPage(5);
+                switchPage(6);
             }, 500);
         });
     });
@@ -3549,32 +3549,39 @@ document.addEventListener('DOMContentLoaded', function() {
         updateNavArrows(pageIndex);
         currentPage = pageIndex;
        
-        // Page order: 0=welcome, 1=theme, 2=pieceset, 3=bot personality,
-        // 4=difficulty, 5=game. The game page is now index 5 (it used to
-        // be 4, before the bot-personality page was inserted at index 3).
-        if (pageIndex === 5) {
+        // Page order: 0=welcome, 1=mode-select, 2=theme, 3=pieceset,
+        // 4=bot personality, 5=difficulty, 6=game, 7=puzzles.
+        if (pageIndex !== 6 && gameTimer) {
+            // Stop the bot-game timer whenever we leave the game page —
+            // including going straight to puzzles, so a live timed game
+            // never keeps ticking down in the background while the player
+            // is doing something else entirely.
+            clearInterval(gameTimer);
+        }
+        if (pageIndex === 6) {
             initNewGame();
             updateCurrentSettings();
             updateFeatureButtonsState();
-        } else {
-            // Stop timer if leaving game page
-            if (gameTimer) {
-                clearInterval(gameTimer);
-            }
+        } else if (pageIndex === 7) {
+            startNextPuzzle();
         }
     }
    
     // Function to update navigation arrows visibility
     function updateNavArrows(pageIndex) {
         if (!leftArrow || !rightArrow) return;
-        if (pageIndex === 0 || pageIndex === 5) {
+        // Arrows only make sense while swiping between the 4 linear setup
+        // steps (theme/pieceset/bot/difficulty) — welcome, mode-select,
+        // game, and puzzles are all destinations you arrive at directly,
+        // not steps you swipe through.
+        if (pageIndex === 0 || pageIndex === 1 || pageIndex === 6 || pageIndex === 7) {
             leftArrow.classList.add('hidden');
             rightArrow.classList.add('hidden');
         } else {
             leftArrow.classList.remove('hidden');
             rightArrow.classList.remove('hidden');
-            leftArrow.classList.toggle('hidden', pageIndex === 1);
-            rightArrow.classList.toggle('hidden', pageIndex === 4);
+            leftArrow.classList.toggle('hidden', pageIndex === 2);
+            rightArrow.classList.toggle('hidden', pageIndex === 5);
         }
     }
    
@@ -5813,7 +5820,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const settingsBtnEl = document.getElementById('settings-btn');
     if (settingsBtnEl) {
         settingsBtnEl.addEventListener('click', function() {
-            switchPage(1);
+            switchPage(2);
             const gameOverModal = document.getElementById('game-over-modal');
             if (gameOverModal) gameOverModal.style.display = 'none';
         });
@@ -6626,28 +6633,27 @@ document.addEventListener('DOMContentLoaded', function() {
         loadPuzzleIntoBoard(puzzle);
     }
 
-    async function openPuzzleModal() {
-        const modal = document.getElementById('puzzle-modal');
-        if (!modal) return;
-        modal.style.display = 'flex';
-        await startNextPuzzle();
-    }
-
-    function closePuzzleModal() {
-        const modal = document.getElementById('puzzle-modal');
-        if (modal) modal.style.display = 'none';
-    }
-
-    const puzzlesBtnEl = document.getElementById('puzzles-btn');
-    if (puzzlesBtnEl) {
-        puzzlesBtnEl.addEventListener('click', openPuzzleModal);
-    }
-    const puzzleCloseBtnEl = document.getElementById('puzzle-close-btn');
-    if (puzzleCloseBtnEl) {
-        puzzleCloseBtnEl.addEventListener('click', closePuzzleModal);
-    }
+    // Puzzles now live on their own page (switchPage(7) already calls
+    // startNextPuzzle() — see switchPage()), so there's no modal open/close
+    // to wire up here anymore; just the page's own controls.
     const puzzleNextBtnEl = document.getElementById('puzzle-next-btn');
     if (puzzleNextBtnEl) {
         puzzleNextBtnEl.addEventListener('click', startNextPuzzle);
+    }
+    const puzzleBackBtnEl = document.getElementById('puzzle-back-btn');
+    if (puzzleBackBtnEl) {
+        puzzleBackBtnEl.addEventListener('click', () => switchPage(1));
+    }
+
+    // Mode-select page: choose "Play" (continues into the existing
+    // theme/pieceset/bot/difficulty setup flow) or "Puzzles" (skips setup
+    // entirely and goes straight to the puzzles page).
+    const modePlayCardEl = document.getElementById('mode-play-card');
+    if (modePlayCardEl) {
+        modePlayCardEl.addEventListener('click', () => switchPage(2));
+    }
+    const modePuzzlesCardEl = document.getElementById('mode-puzzles-card');
+    if (modePuzzlesCardEl) {
+        modePuzzlesCardEl.addEventListener('click', () => switchPage(7));
     }
 });
