@@ -110,6 +110,22 @@
                 </div>
             </div>
         </div>
+        <!-- Mode Selection Page -->
+        <div class="page mode-select-page">
+            <h2 class="page-title">What would you like to do?</h2>
+            <div class="options-container">
+                <div class="option-card mode-card" id="mode-play-card">
+                    <i class="fas fa-chess-board option-icon"></i>
+                    <div class="option-name">Play</div>
+                    <div class="option-desc">Challenge the Bot</div>
+                </div>
+                <div class="option-card mode-card" id="mode-puzzles-card">
+                    <i class="fas fa-puzzle-piece option-icon"></i>
+                    <div class="option-name">Puzzles</div>
+                    <div class="option-desc">Sharpen Your Tactics</div>
+                </div>
+            </div>
+        </div>
         <!-- Theme Selection Page -->
         <div class="page theme-page">
             <h2 class="page-title">Choose Your Board Theme</h2>
@@ -139,9 +155,7 @@
                 </div>
             </div>
             <div class="navigation-dots">
-                <div class="dot" data-page="0"></div>
-                <div class="dot active" data-page="1"></div>
-                <div class="dot" data-page="2"></div>
+                <div class="dot active" data-page="2"></div>
                 <div class="dot" data-page="3"></div>
                 <div class="dot" data-page="4"></div>
                 <div class="dot" data-page="5"></div>
@@ -176,10 +190,8 @@
                 </div>
             </div>
             <div class="navigation-dots">
-                <div class="dot" data-page="0"></div>
-                <div class="dot" data-page="1"></div>
-                <div class="dot active" data-page="2"></div>
-                <div class="dot" data-page="3"></div>
+                <div class="dot" data-page="2"></div>
+                <div class="dot active" data-page="3"></div>
                 <div class="dot" data-page="4"></div>
                 <div class="dot" data-page="5"></div>
             </div>
@@ -213,11 +225,9 @@
                 </div>
             </div>
             <div class="navigation-dots">
-                <div class="dot" data-page="0"></div>
-                <div class="dot" data-page="1"></div>
                 <div class="dot" data-page="2"></div>
-                <div class="dot active" data-page="3"></div>
-                <div class="dot" data-page="4"></div>
+                <div class="dot" data-page="3"></div>
+                <div class="dot active" data-page="4"></div>
                 <div class="dot" data-page="5"></div>
             </div>
         </div>
@@ -258,12 +268,10 @@
                 </div>
             </div>
             <div class="navigation-dots">
-                <div class="dot" data-page="0"></div>
-                <div class="dot" data-page="1"></div>
                 <div class="dot" data-page="2"></div>
                 <div class="dot" data-page="3"></div>
-                <div class="dot active" data-page="4"></div>
-                <div class="dot" data-page="5"></div>
+                <div class="dot" data-page="4"></div>
+                <div class="dot active" data-page="5"></div>
             </div>
         </div>
         <!-- Main Game Page -->
@@ -350,26 +358,8 @@
                             <i class="fas fa-upload"></i>
                             <span>Exp PGN</span>
                         </div>
-                        <div class="control-icon" id="puzzles-btn" role="button" tabindex="0" aria-label="Puzzles">
-                            <i class="fas fa-puzzle-piece"></i>
-                            <span>Puzzles</span>
-                        </div>
                     </div>
                 </main>
-            </div>
-            <!-- Puzzle Mode Modal -->
-            <div id="puzzle-modal" class="advice-modal">
-                <div class="advice-content">
-                    <div class="advice-header">
-                        <h2>Puzzles <span id="puzzle-rating" class="puzzle-rating-badge"></span></h2>
-                        <span id="puzzle-close-btn" class="advice-close">&times;</span>
-                    </div>
-                    <div class="puzzle-body">
-                        <div class="chessboard" id="puzzle-chessboard"></div>
-                        <div id="puzzle-feedback" class="puzzle-feedback">Loading puzzle…</div>
-                        <button id="puzzle-next-btn" class="nav-button" style="display:none;">Next Puzzle</button>
-                    </div>
-                </div>
             </div>
             <!-- Features Explanation Modal -->
             <div id="features-modal" class="features-modal">
@@ -741,6 +731,18 @@
                     </div>
                 </div>
             </div>
+        </div>
+        <!-- Puzzles Page -->
+        <div class="page puzzles-page">
+            <div class="puzzles-page-header">
+                <h2 class="page-title">Puzzles <span id="puzzle-rating" class="puzzle-rating-badge"></span></h2>
+            </div>
+            <div class="puzzle-body">
+                <div class="chessboard" id="puzzle-chessboard"></div>
+                <div id="puzzle-feedback" class="puzzle-feedback">Loading puzzle…</div>
+                <button id="puzzle-next-btn" class="nav-button" style="display:none;">Next Puzzle</button>
+            </div>
+            <button id="puzzle-back-btn" class="nav-button puzzle-back-btn">Back</button>
         </div>
         <!-- Navigation Arrows -->
         <div class="nav-arrows">
