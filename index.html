@@ -732,17 +732,125 @@
                 </div>
             </div>
         </div>
+        <!-- Puzzle Type Selection Page -->
+        <div class="page puzzle-type-page">
+            <h2 class="page-title">Choose Puzzle Type</h2>
+            <div class="options-container">
+                <div class="option-card puzzle-type-card" data-puzzle-type="tactical">
+                    <i class="fas fa-bullseye option-icon"></i>
+                    <div class="option-name">Tactical Puzzles</div>
+                    <div class="option-desc">Find the winning move — fork, pin, or more</div>
+                </div>
+                <div class="option-card puzzle-type-card locked" data-puzzle-type="rush">
+                    <div class="lock-overlay"><i class="fas fa-lock"></i></div>
+                    <i class="fas fa-bolt option-icon"></i>
+                    <div class="option-name">Puzzle Rush</div>
+                    <div class="option-desc">Solve as many as you can, beat the clock</div>
+                </div>
+                <div class="option-card puzzle-type-card locked" data-puzzle-type="mateInX">
+                    <div class="lock-overlay"><i class="fas fa-lock"></i></div>
+                    <i class="fas fa-chess-king option-icon"></i>
+                    <div class="option-name">Mate in X</div>
+                    <div class="option-desc">Forced checkmate in the fewest moves</div>
+                </div>
+                <div class="option-card puzzle-type-card locked" data-puzzle-type="endgame">
+                    <div class="lock-overlay"><i class="fas fa-lock"></i></div>
+                    <i class="fas fa-chess-board option-icon"></i>
+                    <div class="option-name">Endgame Puzzles</div>
+                    <div class="option-desc">Promote a pawn, hold a draw, force zugzwang</div>
+                </div>
+            </div>
+            <button id="puzzle-type-back-btn" class="nav-button puzzle-back-btn">Back</button>
+        </div>
+        <!-- Puzzle Difficulty Selection Page -->
+        <div class="page puzzle-difficulty-page">
+            <h2 class="page-title">Choose Difficulty</h2>
+            <div class="options-container">
+                <div class="option-card puzzle-difficulty-card" data-puzzle-difficulty="easy">
+                    <i class="fas fa-seedling option-icon"></i>
+                    <div class="option-name">Easy</div>
+                    <div class="option-desc">Rating up to 1200</div>
+                </div>
+                <div class="option-card puzzle-difficulty-card locked" data-puzzle-difficulty="medium">
+                    <div class="lock-overlay"><i class="fas fa-lock"></i></div>
+                    <i class="fas fa-chess-pawn option-icon"></i>
+                    <div class="option-name">Medium</div>
+                    <div class="option-desc">Rating 1200–1599</div>
+                </div>
+                <div class="option-card puzzle-difficulty-card locked" data-puzzle-difficulty="hard">
+                    <div class="lock-overlay"><i class="fas fa-lock"></i></div>
+                    <i class="fas fa-chess-knight option-icon"></i>
+                    <div class="option-name">Hard</div>
+                    <div class="option-desc">Rating 1600–1999</div>
+                </div>
+                <div class="option-card puzzle-difficulty-card locked" data-puzzle-difficulty="expert">
+                    <div class="lock-overlay"><i class="fas fa-lock"></i></div>
+                    <i class="fas fa-crown option-icon"></i>
+                    <div class="option-name">Expert</div>
+                    <div class="option-desc">Rating 2000+</div>
+                </div>
+            </div>
+            <button id="puzzle-difficulty-back-btn" class="nav-button puzzle-back-btn">Back</button>
+        </div>
         <!-- Puzzles Page -->
         <div class="page puzzles-page">
             <div class="puzzles-page-header">
                 <h2 class="page-title">Puzzles <span id="puzzle-rating" class="puzzle-rating-badge"></span></h2>
+                <div class="puzzle-stats-row">
+                    <span class="puzzle-points-display"><i class="fas fa-star"></i> <span id="puzzle-points">0</span> pts</span>
+                    <span id="puzzle-mate-counter" class="puzzle-mate-counter" style="display:none;"></span>
+                </div>
             </div>
             <div class="puzzle-body">
-                <div class="chessboard" id="puzzle-chessboard"></div>
+                <div class="chessboard puzzle-chessboard-large" id="puzzle-chessboard"></div>
+                <div id="puzzle-endgame-tip" class="puzzle-endgame-tip" style="display:none;"></div>
                 <div id="puzzle-feedback" class="puzzle-feedback">Loading puzzle…</div>
-                <button id="puzzle-next-btn" class="nav-button" style="display:none;">Next Puzzle</button>
+                <div class="puzzle-actions-row">
+                    <button id="puzzle-hint-btn" class="nav-button puzzle-hint-btn"><i class="fas fa-lightbulb"></i> Hint</button>
+                    <button id="puzzle-next-btn" class="nav-button" style="display:none;">Next Puzzle</button>
+                </div>
             </div>
             <button id="puzzle-back-btn" class="nav-button puzzle-back-btn">Back</button>
+        </div>
+        <!-- Puzzle Rush Page -->
+        <div class="page puzzle-rush-page">
+            <div class="puzzles-page-header">
+                <h2 class="page-title">Puzzle Rush</h2>
+            </div>
+            <div id="rush-mode-select" class="options-container rush-mode-select">
+                <div class="option-card rush-mode-card" data-rush-mode="time3">
+                    <i class="fas fa-stopwatch option-icon"></i>
+                    <div class="option-name">3 Minutes</div>
+                    <div class="option-desc">Solve as many as you can</div>
+                </div>
+                <div class="option-card rush-mode-card" data-rush-mode="time5">
+                    <i class="fas fa-stopwatch option-icon"></i>
+                    <div class="option-name">5 Minutes</div>
+                    <div class="option-desc">Solve as many as you can</div>
+                </div>
+                <div class="option-card rush-mode-card" data-rush-mode="survival">
+                    <i class="fas fa-heart option-icon"></i>
+                    <div class="option-name">Survival</div>
+                    <div class="option-desc">Ends after 3 mistakes</div>
+                </div>
+            </div>
+            <div id="rush-play-area" class="puzzle-body" style="display:none;">
+                <div class="puzzle-stats-row rush-stats-row">
+                    <span class="rush-stat"><i class="fas fa-check"></i> <span id="rush-solved-count">0</span></span>
+                    <span class="rush-stat" id="rush-timer-display" style="display:none;"><i class="fas fa-clock"></i> <span id="rush-time-left">0:00</span></span>
+                    <span class="rush-stat" id="rush-mistakes-display" style="display:none;"><i class="fas fa-heart-crack"></i> <span id="rush-mistakes-left">3</span></span>
+                </div>
+                <div class="chessboard puzzle-chessboard-large" id="rush-chessboard"></div>
+                <div id="rush-feedback" class="puzzle-feedback"></div>
+            </div>
+            <div id="rush-results" class="rush-results" style="display:none;">
+                <h3>Run Complete!</h3>
+                <p id="rush-results-summary"></p>
+                <p class="rush-best-line">Today's Best: <span id="rush-best-today">0</span> &nbsp;|&nbsp; This Week's Best: <span id="rush-best-week">0</span></p>
+                <p class="puzzle-endgame-tip" style="display:block;">These bests are saved on this device only — there's no shared leaderboard across players yet.</p>
+                <button id="rush-play-again-btn" class="nav-button">Play Again</button>
+            </div>
+            <button id="puzzle-rush-back-btn" class="nav-button puzzle-back-btn">Back</button>
         </div>
         <!-- Navigation Arrows -->
         <div class="nav-arrows">
