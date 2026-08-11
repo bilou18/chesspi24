@@ -537,11 +537,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // subscription simply returns false — nothing else changes.
     // ── DEV/TEST TOGGLE ──────────────────────────────────────────────────
     // Set to true to bypass ALL paywalls locally (levels, themes, piece
-    // sets, bot personalities, Premium) for testing without spending real
-    // Pi. Every unlock check below ultimately falls back to
-    // isPremiumActive(), so flipping this one flag unlocks everything.
+    // sets, bot personalities, puzzle types/difficulties, Premium) for
+    // testing without spending real Pi. Every unlock check below
+    // ultimately falls back to isPremiumActive(), so flipping this one
+    // flag unlocks everything, puzzles included.
     // MUST be set back to false before deploying / shipping to real users.
-    const DEV_UNLOCK_ALL = false;
+    const DEV_UNLOCK_ALL = true;
 
     function isPremiumActive() {
         if (DEV_UNLOCK_ALL) return true;
@@ -5990,7 +5991,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const settingsBtnEl = document.getElementById('settings-btn');
     if (settingsBtnEl) {
         settingsBtnEl.addEventListener('click', function() {
-            switchPage(2);
+            switchPage(1); // mode-select (Play vs Puzzles) — not straight to theme, so a
+                           // post-game "Settings" click doesn't silently assume Play.
             const gameOverModal = document.getElementById('game-over-modal');
             if (gameOverModal) gameOverModal.style.display = 'none';
         });
@@ -6746,6 +6748,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function updatePuzzleBoard() {
         const boardId = puzzleState.boardId || 'puzzle-chessboard';
         const currentPieceSet = ['neo', 'wood', 'glass', 'marble'].includes(userSettings.pieceSet) ? userSettings.pieceSet : 'neo';
+        const inCheck = puzzleState.chess.in_check();
+        const turnColor = puzzleState.chess.turn();
         for (let row = 0; row < 8; row++) {
             for (let col = 0; col < 8; col++) {
                 const squareName = String.fromCharCode(97 + col) + (8 - row);
@@ -6753,8 +6757,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 const squareEl = document.querySelector(`#${boardId} .square[data-row="${row}"][data-col="${col}"]`);
                 if (!squareEl) continue;
                 squareEl.innerHTML = '';
-                squareEl.classList.remove('selected', 'legal-move', 'hint-from', 'hint-to', 'last-move');
-                if (piece) squareEl.appendChild(createPieceElement(piece.type, piece.color, currentPieceSet));
+                squareEl.classList.remove('selected', 'valid-move', 'capture-move', 'hint-from', 'hint-to', 'last-move', 'check');
+                if (piece) {
+                    squareEl.appendChild(createPieceElement(piece.type, piece.color, currentPieceSet));
+                    // Same check-highlight as the bot board: the side-to-move's
+                    // king square when the position is in check.
+                    if (inCheck && piece.type === 'k' && piece.color === turnColor) {
+                        squareEl.classList.add('check');
+                    }
+                }
             }
         }
     }
@@ -6762,7 +6773,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function clearPuzzleSelection() {
         const boardId = puzzleState.boardId || 'puzzle-chessboard';
         puzzleSelectedSquare = null;
-        document.querySelectorAll(`#${boardId} .square`).forEach(sq => sq.classList.remove('selected', 'legal-move'));
+        document.querySelectorAll(`#${boardId} .square`).forEach(sq => sq.classList.remove('selected', 'valid-move', 'capture-move'));
+        document.querySelectorAll(`#${boardId} .move-marker`).forEach(marker => marker.remove());
     }
 
     function handlePuzzleSquareClick(row, col) {
@@ -6800,11 +6812,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const row = 8 - parseInt(squareName[1]);
         const squareEl = document.querySelector(`#${boardId} .square[data-row="${row}"][data-col="${col}"]`);
         if (squareEl) squareEl.classList.add('selected');
+        // Same two-marker system as the bot board's showValidMoves(): a
+        // small filled dot for a normal move, a hollow ring around the
+        // whole square for a move that captures — so it's immediately
+        // obvious which highlighted squares let you take a piece.
         puzzleState.chess.moves({ square: squareName, verbose: true }).forEach(m => {
             const tCol = m.to.charCodeAt(0) - 97;
             const tRow = 8 - parseInt(m.to[1]);
             const tEl = document.querySelector(`#${boardId} .square[data-row="${tRow}"][data-col="${tCol}"]`);
-            if (tEl) tEl.classList.add('legal-move');
+            if (!tEl) return;
+            const marker = document.createElement('div');
+            if (m.captured) {
+                tEl.classList.add('capture-move');
+                marker.className = 'move-marker capture-marker';
+            } else {
+                tEl.classList.add('valid-move');
+                marker.className = 'move-marker valid-marker';
+            }
+            tEl.appendChild(marker);
         });
     }
 
@@ -6837,6 +6862,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 tipEl.textContent = puzzleState.endgameTipText || getEndgameTip(puzzleState.current);
                 tipEl.style.display = 'block';
             }
+        }
+    }
+
+    // Same move-sound selection as the bot board's playMoveSound(): capture/
+    // promote/castle detected from the move's flags, plus a check/checkmate
+    // sound layered on top when the resulting position calls for it.
+    function playPuzzleMoveSound(move, isPlayer) {
+        if (isMuted || !move) return;
+        let moveSoundType = isPlayer ? 'move-self' : 'move-opponent';
+        const isKingTwoFileMove = move.piece === 'k' &&
+            Math.abs(move.from.charCodeAt(0) - move.to.charCodeAt(0)) === 2;
+        if (move.flags.includes('c') || move.flags.includes('e')) {
+            moveSoundType = 'capture';
+        } else if (move.flags.includes('p')) {
+            moveSoundType = 'promote';
+        } else if (move.flags.includes('k') || move.flags.includes('q') || isKingTwoFileMove) {
+            moveSoundType = 'castle';
+        }
+        sounds[moveSoundType].play();
+        if (puzzleState.chess.in_checkmate()) {
+            sounds['checkmate'].play();
+        } else if (puzzleState.chess.in_check()) {
+            sounds['move-check'].play();
         }
     }
 
@@ -6896,10 +6944,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Correct — apply it for real (with promotion piece from the puzzle data if any).
         const promo = expectedUci.length > 4 ? expectedUci[4] : undefined;
-        puzzleState.chess.move({ from: attempt.from, to: attempt.to, promotion: promo || 'q' });
+        const moveResult = puzzleState.chess.move({ from: attempt.from, to: attempt.to, promotion: promo || 'q' });
         updatePuzzleBoard();
         highlightPuzzleLastMove(attempt.from, attempt.to);
-        if (!isMuted && sounds['move-self']) sounds['move-self'].play();
+        playPuzzleMoveSound(moveResult, true);
         puzzleState.moveIndex++;
         updateMateCounter();
         maybeAdvancePuzzle();
@@ -6923,10 +6971,10 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             const uci = moves[puzzleState.moveIndex];
             const from = uci.slice(0, 2), to = uci.slice(2, 4), promo = uci.length > 4 ? uci[4] : undefined;
-            puzzleState.chess.move({ from, to, promotion: promo || 'q' });
+            const moveResult = puzzleState.chess.move({ from, to, promotion: promo || 'q' });
             updatePuzzleBoard();
             highlightPuzzleLastMove(from, to);
-            if (!isMuted && sounds['move-opponent']) sounds['move-opponent'].play();
+            playPuzzleMoveSound(moveResult, false);
             puzzleState.moveIndex++;
             if (puzzleState.moveIndex >= moves.length) {
                 finishPuzzle(true);
@@ -7013,10 +7061,10 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             const uci = puzzle.moves[0];
             const from = uci.slice(0, 2), to = uci.slice(2, 4), promo = uci.length > 4 ? uci[4] : undefined;
-            puzzleState.chess.move({ from, to, promotion: promo || 'q' });
+            const moveResult = puzzleState.chess.move({ from, to, promotion: promo || 'q' });
             updatePuzzleBoard();
             highlightPuzzleLastMove(from, to);
-            if (!isMuted && sounds['move-opponent']) sounds['move-opponent'].play();
+            playPuzzleMoveSound(moveResult, false);
             puzzleState.moveIndex = 1;
         }, isRush ? 150 : 400);
     }
