@@ -1648,15 +1648,10 @@ html.device-tablet .feature-count {
 .puzzle-feedback.wrong {
     color: #c62828;
 }
-.square.legal-move::after {
-    content: "";
-    position: absolute;
-    width: 28%;
-    height: 28%;
-    border-radius: 50%;
-    background-color: rgba(0, 0, 0, 0.18);
-    pointer-events: none;
-}
+/* Puzzle board move indicators now reuse the exact same .move-marker/
+   .valid-marker/.capture-marker system as the bot board (see styles.css
+   around line 409) instead of a separate CSS-only dot — this comment
+   marks where that rule used to live. */
 
 /* Mode Select page */
 .mode-select-page .options-container {
