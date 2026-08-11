@@ -239,6 +239,14 @@ document.addEventListener('DOMContentLoaded', function() {
         unlockedThemes: ['brown'],
         unlockedPieceSets: ['neo'],
         unlockedBotPersonalities: ['aggressive'],
+        // Puzzle types/difficulties: unlike everything else above, these
+        // are NEVER granted by an active Premium subscription — only by
+        // an actual Pi purchase (single item or bundle). See
+        // isPuzzleTypeUnlocked()/isPuzzleDifficultyUnlocked() in the
+        // PUZZLE MODE section below, which deliberately omit the
+        // isPremiumActive() OR-clause every other isXUnlocked() has.
+        unlockedPuzzleTypes: ['tactical'],
+        unlockedPuzzleDifficulties: ['easy'],
         // Pi Premium subscription state. premiumExpiresAt is an epoch-ms
         // timestamp; while it's in the future every level/theme/piece-set
         // is treated as unlocked (see isPremiumActive() below) without
@@ -256,6 +264,8 @@ document.addEventListener('DOMContentLoaded', function() {
         purchasedThemes: [],
         purchasedPieceSets: [],
         purchasedBotPersonalities: [],
+        purchasedPuzzleTypes: [],
+        purchasedPuzzleDifficulties: [],
         // One-time free trial tracking: every locked level/theme/piece-set/
         // bot personality may be sampled for free exactly once (see
         // showUnlockModal-bypass logic in the option-card click handlers
@@ -263,10 +273,15 @@ document.addEventListener('DOMContentLoaded', function() {
         // single free trial has been spent and it goes straight to the
         // paywall from then on. Permanent/additive — never shrinks — same
         // shape as the purchasedX arrays above, and synced the same way.
+        // NOTE: puzzle types/difficulties DO have a triedX array (see
+        // hasTriedPuzzleType()/markTried() below) — full parity with
+        // every other category now.
         triedLevels: [],
         triedThemes: [],
         triedPieceSets: [],
-        triedBotPersonalities: []
+        triedBotPersonalities: [],
+        triedPuzzleTypes: [],
+        triedPuzzleDifficulties: []
     };
     let piAccessToken = null;
     let piUserUid = null;
@@ -344,6 +359,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // unlock the same way themes/piece sets do (Pi payment only — there is
     // no free "beat the previous one" progression for personalities).
     const LOCKABLE_BOT_PERSONALITIES = ['defensive', 'endgame', 'trickster'];
+    // Puzzle types/difficulties: same purchase-only pattern as bot
+    // personalities above (no free "beat the previous one" progression),
+    // except these are NEVER included in the isPremiumActive() OR-clause —
+    // see isPuzzleTypeUnlocked()/isPuzzleDifficultyUnlocked() in the
+    // PUZZLE MODE section. Tactical/Easy are the free-by-default items.
+    const LOCKABLE_PUZZLE_TYPES = ['rush', 'mateInX', 'endgame'];
+    const LOCKABLE_PUZZLE_DIFFICULTIES = ['medium', 'hard', 'expert'];
     // Display metadata for each bot personality — used by the bot-selection
     // page (index.html cards use the same 'id's as data-bot-personality)
     // and by the unlock modal. 'free' mirrors how Easy/Brown/Neo work: the
@@ -564,6 +586,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function hasTriedBotPersonality(personality) {
         return playerProgress.triedBotPersonalities.includes(personality);
     }
+    function hasTriedPuzzleType(type) {
+        return playerProgress.triedPuzzleTypes.includes(type);
+    }
+    function hasTriedPuzzleDifficulty(diff) {
+        return playerProgress.triedPuzzleDifficulties.includes(diff);
+    }
     // Records that a locked item's one-time free trial was just spent,
     // persists it locally, and syncs it to the server in the background
     // (best-effort — same pattern as recordPurchase()). Deliberately does
@@ -575,6 +603,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const key = category === 'level' ? 'triedLevels'
             : category === 'theme' ? 'triedThemes'
             : category === 'bot' ? 'triedBotPersonalities'
+            : category === 'puzzletype' ? 'triedPuzzleTypes'
+            : category === 'puzzledifficulty' ? 'triedPuzzleDifficulties'
             : 'triedPieceSets';
         if (!playerProgress[key].includes(name)) {
             playerProgress[key].push(name);
@@ -612,6 +642,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     function getRemainingLockedBotPersonalities() {
         return LOCKABLE_BOT_PERSONALITIES.filter(b => !isBotPersonalityUnlocked(b));
+    }
+    function getRemainingLockedPuzzleTypes() {
+        return LOCKABLE_PUZZLE_TYPES.filter(t => !isPuzzleTypeUnlocked(t));
+    }
+    function getRemainingLockedPuzzleDifficulties() {
+        return LOCKABLE_PUZZLE_DIFFICULTIES.filter(d => !isPuzzleDifficultyUnlocked(d));
     }
 
     // Refreshes the lock icon/dimming on every difficulty & theme card to
@@ -652,10 +688,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const personality = card.getAttribute('data-bot-personality');
             setCardLockState(card, isBotPersonalityUnlocked(personality));
         });
-        // Puzzle type/difficulty cards: Premium-subscription-only gating,
-        // no per-item purchase and no free trial (see the PUZZLE MODE
-        // section below) — isPuzzleTypeUnlocked()/isPuzzleDifficultyUnlocked()
-        // just check meta.free || isPremiumActive().
+        // Puzzle type/difficulty cards: same per-item/bundle Pi-purchase
+        // gating as theme/pieceset/bot cards above, but with NO free trial
+        // and NOT covered by the Premium subscription — see the PUZZLE
+        // MODE section's opening comment for why.
         document.querySelectorAll('.option-card[data-puzzle-type]').forEach((card) => {
             const type = card.getAttribute('data-puzzle-type');
             setCardLockState(card, isPuzzleTypeUnlocked(type));
@@ -690,7 +726,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Merges newly-unlocked items into playerProgress (no duplicates),
     // updates the local cache immediately, and syncs to the server in the
     // background if we have a verified Pi identity.
-    function grantProgress({ levels = [], themes = [], pieceSets = [], botPersonalities = [] } = {}) {
+    function grantProgress({ levels = [], themes = [], pieceSets = [], botPersonalities = [], puzzleTypes = [], puzzleDifficulties = [] } = {}) {
         let changed = false;
         levels.forEach((lvl) => {
             if (!playerProgress.unlockedLevels.includes(lvl)) {
@@ -716,6 +752,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 changed = true;
             }
         });
+        puzzleTypes.forEach((t) => {
+            if (!playerProgress.unlockedPuzzleTypes.includes(t)) {
+                playerProgress.unlockedPuzzleTypes.push(t);
+                changed = true;
+            }
+        });
+        puzzleDifficulties.forEach((d) => {
+            if (!playerProgress.unlockedPuzzleDifficulties.includes(d)) {
+                playerProgress.unlockedPuzzleDifficulties.push(d);
+                changed = true;
+            }
+        });
         if (changed) {
             savePlayerProgressToLocalCache();
             syncProgressToServer();
@@ -730,7 +778,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // same merge shape as grantProgress(), and also nudges the server to
     // refresh the player's leaderboard entry immediately (if they already
     // have one) so the badge doesn't wait for their next game to appear.
-    function recordPurchase({ levels = [], themes = [], pieceSets = [], botPersonalities = [] } = {}) {
+    function recordPurchase({ levels = [], themes = [], pieceSets = [], botPersonalities = [], puzzleTypes = [], puzzleDifficulties = [] } = {}) {
         let changed = false;
         levels.forEach((lvl) => {
             if (!playerProgress.purchasedLevels.includes(lvl)) {
@@ -753,6 +801,18 @@ document.addEventListener('DOMContentLoaded', function() {
         botPersonalities.forEach((bp) => {
             if (!playerProgress.purchasedBotPersonalities.includes(bp)) {
                 playerProgress.purchasedBotPersonalities.push(bp);
+                changed = true;
+            }
+        });
+        puzzleTypes.forEach((t) => {
+            if (!playerProgress.purchasedPuzzleTypes.includes(t)) {
+                playerProgress.purchasedPuzzleTypes.push(t);
+                changed = true;
+            }
+        });
+        puzzleDifficulties.forEach((d) => {
+            if (!playerProgress.purchasedPuzzleDifficulties.includes(d)) {
+                playerProgress.purchasedPuzzleDifficulties.push(d);
                 changed = true;
             }
         });
@@ -912,6 +972,12 @@ document.addEventListener('DOMContentLoaded', function() {
         (serverProgress.unlockedBotPersonalities || []).forEach((bp) => {
             if (!playerProgress.unlockedBotPersonalities.includes(bp)) playerProgress.unlockedBotPersonalities.push(bp);
         });
+        (serverProgress.unlockedPuzzleTypes || []).forEach((t) => {
+            if (!playerProgress.unlockedPuzzleTypes.includes(t)) playerProgress.unlockedPuzzleTypes.push(t);
+        });
+        (serverProgress.unlockedPuzzleDifficulties || []).forEach((d) => {
+            if (!playerProgress.unlockedPuzzleDifficulties.includes(d)) playerProgress.unlockedPuzzleDifficulties.push(d);
+        });
         (serverProgress.purchasedLevels || []).forEach((lvl) => {
             if (!playerProgress.purchasedLevels.includes(lvl)) playerProgress.purchasedLevels.push(lvl);
         });
@@ -924,6 +990,12 @@ document.addEventListener('DOMContentLoaded', function() {
         (serverProgress.purchasedBotPersonalities || []).forEach((bp) => {
             if (!playerProgress.purchasedBotPersonalities.includes(bp)) playerProgress.purchasedBotPersonalities.push(bp);
         });
+        (serverProgress.purchasedPuzzleTypes || []).forEach((t) => {
+            if (!playerProgress.purchasedPuzzleTypes.includes(t)) playerProgress.purchasedPuzzleTypes.push(t);
+        });
+        (serverProgress.purchasedPuzzleDifficulties || []).forEach((d) => {
+            if (!playerProgress.purchasedPuzzleDifficulties.includes(d)) playerProgress.purchasedPuzzleDifficulties.push(d);
+        });
         (serverProgress.triedLevels || []).forEach((lvl) => {
             if (!playerProgress.triedLevels.includes(lvl)) playerProgress.triedLevels.push(lvl);
         });
@@ -935,6 +1007,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         (serverProgress.triedBotPersonalities || []).forEach((bp) => {
             if (!playerProgress.triedBotPersonalities.includes(bp)) playerProgress.triedBotPersonalities.push(bp);
+        });
+        (serverProgress.triedPuzzleTypes || []).forEach((t) => {
+            if (!playerProgress.triedPuzzleTypes.includes(t)) playerProgress.triedPuzzleTypes.push(t);
+        });
+        (serverProgress.triedPuzzleDifficulties || []).forEach((d) => {
+            if (!playerProgress.triedPuzzleDifficulties.includes(d)) playerProgress.triedPuzzleDifficulties.push(d);
         });
         // Pi Premium: adopt the server's expiry only if it's later than
         // what we already have locally, so an active subscription
@@ -1213,7 +1291,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     timeLeft: "Time Left",
                     premiumAriaLabel: "Chess Pi Premium subscription",
                     premiumTitle: "Chess Pi Premium",
-                    premiumDesc: "Unlock every level, board theme, piece set, and bot personality for as long as your subscription is active.",
+                    premiumDesc: "Unlock every level, board theme, piece set, bot personality, and puzzle type/difficulty for as long as your subscription is active.",
                     premiumMonthlyLabel: "Monthly",
                     premiumYearlyLabel: "Yearly",
                     premiumBestValue: "Best Value",
@@ -1861,7 +1939,17 @@ document.addEventListener('DOMContentLoaded', function() {
         wood: 'Wood', glass: 'Glass', marble: 'Marble',
         defensive: 'Solid Defender', endgame: 'Endgame Technician', trickster: 'Gambit Trickster'
     };
-    let pendingUnlock = null; // { type: 'level' | 'theme' | 'pieceset' | 'bot', name: string }
+    // Separate map for puzzle TYPES specifically: 'endgame' is already a
+    // bot-personality key above ('Endgame Technician') — UNLOCK_DISPLAY_NAMES
+    // is a flat, unnamespaced lookup, so reusing the same key for the
+    // "Endgame Puzzles" puzzle type would silently overwrite it (or vice
+    // versa) depending on object literal order. Puzzle DIFFICULTIES don't
+    // need their own map — 'medium'/'hard'/'expert' already mean exactly
+    // the same thing in UNLOCK_DISPLAY_NAMES above.
+    const PUZZLE_TYPE_DISPLAY_NAMES = {
+        tactical: 'Tactical Puzzles', rush: 'Puzzle Rush', mateInX: 'Mate in X', endgame: 'Endgame Puzzles'
+    };
+    let pendingUnlock = null; // { type: 'level' | 'theme' | 'pieceset' | 'bot' | 'puzzletype' | 'puzzledifficulty', name: string }
 
     // Formats a Pi amount for display: up to 4 decimal places, trimmed of
     // trailing zeros (e.g. 1.75, 0.4286, 3).
@@ -1916,6 +2004,18 @@ document.addEventListener('DOMContentLoaded', function() {
             price = getBundlePricePi(remaining.length);
             title.textContent = 'Unlock All Bot Personalities';
             desc.textContent = 'Get the Solid Defender, Endgame Technician, and Gambit Trickster bots in one purchase.';
+            if (unlockAllBtn) unlockAllBtn.classList.add('hidden');
+        } else if (type === 'all-puzzletypes') {
+            const remaining = getRemainingLockedPuzzleTypes();
+            price = getBundlePricePi(remaining.length);
+            title.textContent = 'Unlock All Puzzle Types';
+            desc.textContent = 'Get Puzzle Rush, Mate in X, and Endgame Puzzles in one purchase.';
+            if (unlockAllBtn) unlockAllBtn.classList.add('hidden');
+        } else if (type === 'all-puzzledifficulties') {
+            const remaining = getRemainingLockedPuzzleDifficulties();
+            price = getBundlePricePi(remaining.length);
+            title.textContent = 'Unlock All Puzzle Difficulties';
+            desc.textContent = 'Get Medium, Hard, and Expert puzzle difficulty in one purchase.';
             if (unlockAllBtn) unlockAllBtn.classList.add('hidden');
         } else {
             const displayName = UNLOCK_DISPLAY_NAMES[name] || name;
@@ -1973,8 +2073,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const bundlePrice = getBundlePricePi(remaining.length);
                     unlockAllText.textContent = `Unlock Remaining ${remaining.length} Piece Sets — ${formatPiAmount(bundlePrice)} π`;
                 }
-            } else {
-                // type === 'bot'
+            } else if (type === 'bot') {
                 if (badge) badge.textContent = 'Bot Personality';
                 title.textContent = displayName;
                 const botMeta = BOT_PERSONALITIES[name];
@@ -1994,6 +2093,42 @@ document.addEventListener('DOMContentLoaded', function() {
                     const bundlePrice = getBundlePricePi(remaining.length);
                     unlockAllText.textContent = `Unlock Remaining ${remaining.length} Bot Personalities — ${formatPiAmount(bundlePrice)} π`;
                 }
+            } else if (type === 'puzzletype') {
+                const puzzleTypeDisplayName = PUZZLE_TYPE_DISPLAY_NAMES[name] || name;
+                if (badge) badge.textContent = 'Puzzle Type';
+                title.textContent = puzzleTypeDisplayName;
+                desc.textContent = `Unlock this puzzle type instantly with Pi.`;
+                if (hasTriedPuzzleType(name) && triedNoteEl && triedNoteTextEl) {
+                    triedNoteTextEl.textContent = triedNote;
+                    triedNoteEl.classList.remove('hidden');
+                }
+                const remaining = getRemainingLockedPuzzleTypes();
+                if (unlockAllBtn) {
+                    unlockAllBtn.classList.toggle('hidden', remaining.length <= 1);
+                    unlockAllBtn.dataset.bundleType = 'all-puzzletypes';
+                }
+                if (unlockAllText) {
+                    const bundlePrice = getBundlePricePi(remaining.length);
+                    unlockAllText.textContent = `Unlock Remaining ${remaining.length} Puzzle Types — ${formatPiAmount(bundlePrice)} π`;
+                }
+            } else {
+                // type === 'puzzledifficulty'
+                if (badge) badge.textContent = 'Puzzle Difficulty';
+                title.textContent = displayName;
+                desc.textContent = `Unlock this puzzle difficulty instantly with Pi.`;
+                if (hasTriedPuzzleDifficulty(name) && triedNoteEl && triedNoteTextEl) {
+                    triedNoteTextEl.textContent = triedNote;
+                    triedNoteEl.classList.remove('hidden');
+                }
+                const remaining = getRemainingLockedPuzzleDifficulties();
+                if (unlockAllBtn) {
+                    unlockAllBtn.classList.toggle('hidden', remaining.length <= 1);
+                    unlockAllBtn.dataset.bundleType = 'all-puzzledifficulties';
+                }
+                if (unlockAllText) {
+                    const bundlePrice = getBundlePricePi(remaining.length);
+                    unlockAllText.textContent = `Unlock Remaining ${remaining.length} Puzzle Difficulties — ${formatPiAmount(bundlePrice)} π`;
+                }
             }
         }
         priceText.textContent = `${formatPiAmount(price)} \u03C0`;
@@ -2006,7 +2141,7 @@ document.addEventListener('DOMContentLoaded', function() {
         isProcessingPayment = true;
         setPaymentButtonsBusy(true);
         const { type, name } = pendingUnlock;
-        const isBundle = type === 'all-levels' || type === 'all-themes' || type === 'all-piecesets' || type === 'all-bots';
+        const isBundle = type === 'all-levels' || type === 'all-themes' || type === 'all-piecesets' || type === 'all-bots' || type === 'all-puzzletypes' || type === 'all-puzzledifficulties';
 
         // Refresh the Pi/USD rate right before charging so the amount
         // reflects the current market price, not whatever was cached when
@@ -2021,6 +2156,8 @@ document.addEventListener('DOMContentLoaded', function() {
         let themesToGrant = [];
         let pieceSetsToGrant = [];
         let botPersonalitiesToGrant = [];
+        let puzzleTypesToGrant = [];
+        let puzzleDifficultiesToGrant = [];
         if (type === 'all-levels') {
             levelsToGrant = getRemainingLockedLevels();
             price = getBundlePricePi(levelsToGrant.length);
@@ -2033,6 +2170,12 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (type === 'all-bots') {
             botPersonalitiesToGrant = getRemainingLockedBotPersonalities();
             price = getBundlePricePi(botPersonalitiesToGrant.length);
+        } else if (type === 'all-puzzletypes') {
+            puzzleTypesToGrant = getRemainingLockedPuzzleTypes();
+            price = getBundlePricePi(puzzleTypesToGrant.length);
+        } else if (type === 'all-puzzledifficulties') {
+            puzzleDifficultiesToGrant = getRemainingLockedPuzzleDifficulties();
+            price = getBundlePricePi(puzzleDifficultiesToGrant.length);
         } else if (type === 'level') {
             levelsToGrant = [name];
         } else if (type === 'theme') {
@@ -2041,12 +2184,16 @@ document.addEventListener('DOMContentLoaded', function() {
             pieceSetsToGrant = [name];
         } else if (type === 'bot') {
             botPersonalitiesToGrant = [name];
+        } else if (type === 'puzzletype') {
+            puzzleTypesToGrant = [name];
+        } else if (type === 'puzzledifficulty') {
+            puzzleDifficultiesToGrant = [name];
         }
 
         // Nothing left to actually unlock (e.g. the player unlocked the
         // rest in another tab/device since this modal was opened) — bail
         // out instead of charging for an empty bundle.
-        if (isBundle && levelsToGrant.length === 0 && themesToGrant.length === 0 && pieceSetsToGrant.length === 0 && botPersonalitiesToGrant.length === 0) {
+        if (isBundle && levelsToGrant.length === 0 && themesToGrant.length === 0 && pieceSetsToGrant.length === 0 && botPersonalitiesToGrant.length === 0 && puzzleTypesToGrant.length === 0 && puzzleDifficultiesToGrant.length === 0) {
             isProcessingPayment = false;
             setPaymentButtonsBusy(false);
             const modal = document.getElementById('unlock-modal');
@@ -2060,13 +2207,15 @@ document.addEventListener('DOMContentLoaded', function() {
             ? (type === 'all-levels' ? `${levelsToGrant.length} Remaining Level(s)`
                 : type === 'all-themes' ? `${themesToGrant.length} Remaining Theme(s)`
                 : type === 'all-piecesets' ? `${pieceSetsToGrant.length} Remaining Piece Set(s)`
-                : `${botPersonalitiesToGrant.length} Remaining Bot Personality(ies)`)
-            : (UNLOCK_DISPLAY_NAMES[name] || name);
+                : type === 'all-bots' ? `${botPersonalitiesToGrant.length} Remaining Bot Personality(ies)`
+                : type === 'all-puzzletypes' ? `${puzzleTypesToGrant.length} Remaining Puzzle Type(s)`
+                : `${puzzleDifficultiesToGrant.length} Remaining Puzzle Difficulty(ies)`)
+            : (type === 'puzzletype' ? (PUZZLE_TYPE_DISPLAY_NAMES[name] || name) : (UNLOCK_DISPLAY_NAMES[name] || name));
 
         try {
             await authenticate();
 
-            const itemCount = isBundle ? (levelsToGrant.length || themesToGrant.length || pieceSetsToGrant.length || botPersonalitiesToGrant.length) : 1;
+            const itemCount = isBundle ? (levelsToGrant.length || themesToGrant.length || pieceSetsToGrant.length || botPersonalitiesToGrant.length || puzzleTypesToGrant.length || puzzleDifficultiesToGrant.length) : 1;
             const usdCharged = isBundle
                 ? UNLOCK_PRICE_USD * itemCount * (1 - BUNDLE_DISCOUNT_RATE)
                 : UNLOCK_PRICE_USD;
@@ -2107,7 +2256,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (themesToGrant.length) grantProgress({ themes: themesToGrant });
                         if (pieceSetsToGrant.length) grantProgress({ pieceSets: pieceSetsToGrant });
                         if (botPersonalitiesToGrant.length) grantProgress({ botPersonalities: botPersonalitiesToGrant });
-                        recordPurchase({ levels: levelsToGrant, themes: themesToGrant, pieceSets: pieceSetsToGrant, botPersonalities: botPersonalitiesToGrant });
+                        if (puzzleTypesToGrant.length) grantProgress({ puzzleTypes: puzzleTypesToGrant });
+                        if (puzzleDifficultiesToGrant.length) grantProgress({ puzzleDifficulties: puzzleDifficultiesToGrant });
+                        recordPurchase({ levels: levelsToGrant, themes: themesToGrant, pieceSets: pieceSetsToGrant, botPersonalities: botPersonalitiesToGrant, puzzleTypes: puzzleTypesToGrant, puzzleDifficulties: puzzleDifficultiesToGrant });
 
                         const modal = document.getElementById('unlock-modal');
                         if (modal) modal.style.display = 'none';
@@ -6373,9 +6524,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // risk destabilizing the main game loop for a feature that doesn't
     // need any of that. It DOES reuse createPieceElement()/the
     // .square/.piece CSS classes so puzzles look identical to the main
-    // board for free, and it reuses showPremiumModal()/isPremiumActive()/
-    // setCardLockState()/renderLockState() for gating, so Premium behaves
-    // and looks identical everywhere else in the app.
+    // board for free, and it reuses showUnlockModal()/setCardLockState()/
+    // renderLockState()/grantProgress()/recordPurchase() for gating and
+    // purchases, so buying a puzzle type/difficulty behaves and looks
+    // identical to buying a theme/piece set/bot personality everywhere
+    // else in the app.
     //
     // Puzzle data/format follows the Lichess Puzzle Database (CC0
     // licensed: https://database.lichess.org/#puzzles) exactly:
@@ -6387,15 +6540,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // lichess_db_puzzle.csv (see tools/build-puzzles.py) drops in with
     // zero conversion.
     //
-    // GATING MODEL: unlike themes/piece sets/bot personalities/difficulty
-    // levels (which support per-item Pi purchases AND a one-time free
-    // trial), puzzle TYPE and puzzle DIFFICULTY are gated purely on
-    // Premium subscription status — one card (Tactical) and one
-    // difficulty (Easy) are free forever, everything else requires an
-    // active subscription, with no per-item purchase and no free trial.
-    // That's a deliberate scope decision (see the chat write-up), not an
-    // oversight — flag it back if per-item puzzle purchases turn out to
-    // be wanted after all.
+    // GATING MODEL: puzzle TYPE and puzzle DIFFICULTY now have full parity
+    // with themes/piece sets/bot personalities/difficulty levels — same
+    // $0.70/item Pi purchase (unlock_puzzletype_<name> / unlock_puzzledifficulty_<name>),
+    // same discounted whole-category bundle (unlock_all-puzzletypes /
+    // unlock_all-puzzledifficulties, 15% off — see UNLOCK_PRICE_USD/
+    // BUNDLE_DISCOUNT_RATE), same one-time free trial per locked item
+    // (hasTriedPuzzleType()/hasTriedPuzzleDifficulty() below, wired up in
+    // the type/difficulty click handlers the exact same way theme/pieceset/
+    // bot/level option cards already do it), AND same Pi Premium
+    // subscription coverage — isPuzzleTypeUnlocked()/isPuzzleDifficultyUnlocked()
+    // include the same `isPremiumActive() ||` clause isThemeUnlocked() etc.
+    // do, so an active monthly/yearly subscription unlocks every puzzle
+    // type and difficulty too, not just levels/themes/piece-sets/bots.
+    // Tactical (type) and Easy (difficulty) remain free forever regardless,
+    // the same role Easy/Brown/Neo/Aggressive Attacker play in their own
+    // categories.
 
     // ---- Category / difficulty classification (derived from Lichess
     // theme tags already present in puzzles.json, so the data file itself
@@ -6416,11 +6576,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function isPuzzleTypeUnlocked(type) {
         const meta = PUZZLE_TYPE_META[type];
-        return !!meta && (meta.free || isPremiumActive());
+        return !!meta && (meta.free || isPremiumActive() || playerProgress.unlockedPuzzleTypes.includes(type));
     }
     function isPuzzleDifficultyUnlocked(diff) {
         const meta = PUZZLE_DIFFICULTY_META[diff];
-        return !!meta && (meta.free || isPremiumActive());
+        return !!meta && (meta.free || isPremiumActive() || playerProgress.unlockedPuzzleDifficulties.includes(diff));
     }
     function getPuzzleCategory(p) {
         const themes = p.themes || [];
@@ -6593,7 +6753,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const squareEl = document.querySelector(`#${boardId} .square[data-row="${row}"][data-col="${col}"]`);
                 if (!squareEl) continue;
                 squareEl.innerHTML = '';
-                squareEl.classList.remove('selected', 'legal-move', 'hint-from', 'hint-to');
+                squareEl.classList.remove('selected', 'legal-move', 'hint-from', 'hint-to', 'last-move');
                 if (piece) squareEl.appendChild(createPieceElement(piece.type, piece.color, currentPieceSet));
             }
         }
@@ -6680,6 +6840,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Highlights the from/to squares of the move that was just played —
+    // same idea and CSS class (.last-move) as the bot board's own
+    // highlightLastMove(), just scoped to whichever puzzle board is
+    // currently active instead of the global #chessboard.
+    function highlightPuzzleLastMove(from, to) {
+        const boardId = puzzleState.boardId || 'puzzle-chessboard';
+        const highlight = (sq) => {
+            const col = sq.charCodeAt(0) - 97;
+            const row = 8 - parseInt(sq[1]);
+            const el = document.querySelector(`#${boardId} .square[data-row="${row}"][data-col="${col}"]`);
+            if (el) el.classList.add('last-move');
+        };
+        highlight(from);
+        highlight(to);
+    }
+
     // Decrements the "Mate in N" badge — called once per correct PLAYER
     // move only (not the opponent's automatic replies), since the count
     // tracks moves remaining for the player to deliver mate.
@@ -6722,6 +6898,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const promo = expectedUci.length > 4 ? expectedUci[4] : undefined;
         puzzleState.chess.move({ from: attempt.from, to: attempt.to, promotion: promo || 'q' });
         updatePuzzleBoard();
+        highlightPuzzleLastMove(attempt.from, attempt.to);
         if (!isMuted && sounds['move-self']) sounds['move-self'].play();
         puzzleState.moveIndex++;
         updateMateCounter();
@@ -6748,6 +6925,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const from = uci.slice(0, 2), to = uci.slice(2, 4), promo = uci.length > 4 ? uci[4] : undefined;
             puzzleState.chess.move({ from, to, promotion: promo || 'q' });
             updatePuzzleBoard();
+            highlightPuzzleLastMove(from, to);
             if (!isMuted && sounds['move-opponent']) sounds['move-opponent'].play();
             puzzleState.moveIndex++;
             if (puzzleState.moveIndex >= moves.length) {
@@ -6837,6 +7015,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const from = uci.slice(0, 2), to = uci.slice(2, 4), promo = uci.length > 4 ? uci[4] : undefined;
             puzzleState.chess.move({ from, to, promotion: promo || 'q' });
             updatePuzzleBoard();
+            highlightPuzzleLastMove(from, to);
             if (!isMuted && sounds['move-opponent']) sounds['move-opponent'].play();
             puzzleState.moveIndex = 1;
         }, isRush ? 150 : 400);
@@ -6992,11 +7171,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // ---- Wiring: puzzle type selection page ----
     document.querySelectorAll('.puzzle-type-card').forEach((card) => {
         card.addEventListener('click', function() {
+            const type = this.getAttribute('data-puzzle-type');
             if (this.classList.contains('locked')) {
-                showPremiumModal();
-                return;
+                // Same one-time-free-trial pattern as theme/pieceset/bot/
+                // level option cards (see the theme handler above for the
+                // full reasoning on the piAccessToken/isPiBrowserEnvironment
+                // guard) — only reliable to offer with a verified Pi
+                // identity, since that's what lets triedPuzzleTypes survive
+                // a cleared localStorage.
+                if (!piAccessToken || !isPiBrowserEnvironment() || hasTriedPuzzleType(type)) {
+                    showUnlockModal('puzzletype', type);
+                    return;
+                }
+                markTried('puzzletype', type);
+                showTrialToast(PUZZLE_TYPE_DISPLAY_NAMES[type] || type);
             }
-            puzzleState.selectedType = this.getAttribute('data-puzzle-type');
+            puzzleState.selectedType = type;
             switchPage(8);
         });
     });
@@ -7008,11 +7198,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // ---- Wiring: puzzle difficulty selection page ----
     document.querySelectorAll('.puzzle-difficulty-card').forEach((card) => {
         card.addEventListener('click', function() {
+            const diff = this.getAttribute('data-puzzle-difficulty');
             if (this.classList.contains('locked')) {
-                showPremiumModal();
-                return;
+                if (!piAccessToken || !isPiBrowserEnvironment() || hasTriedPuzzleDifficulty(diff)) {
+                    showUnlockModal('puzzledifficulty', diff);
+                    return;
+                }
+                markTried('puzzledifficulty', diff);
+                showTrialToast(UNLOCK_DISPLAY_NAMES[diff] || diff);
             }
-            puzzleState.selectedDifficulty = this.getAttribute('data-puzzle-difficulty');
+            puzzleState.selectedDifficulty = diff;
             switchPage(puzzleState.selectedType === 'rush' ? 10 : 9);
         });
     });
