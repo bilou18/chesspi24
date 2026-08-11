@@ -689,10 +689,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const personality = card.getAttribute('data-bot-personality');
             setCardLockState(card, isBotPersonalityUnlocked(personality));
         });
-        // Puzzle type/difficulty cards: same per-item/bundle Pi-purchase
-        // gating as theme/pieceset/bot cards above, but with NO free trial
-        // and NOT covered by the Premium subscription — see the PUZZLE
-        // MODE section's opening comment for why.
+        // Puzzle type/difficulty cards: full parity with theme/pieceset/bot
+        // cards above — per-item/bundle Pi purchase, one-time free trial,
+        // AND covered by the Premium subscription (isPuzzleTypeUnlocked()/
+        // isPuzzleDifficultyUnlocked() include the same isPremiumActive()
+        // check). DEV_UNLOCK_ALL above therefore unlocks these too.
         document.querySelectorAll('.option-card[data-puzzle-type]').forEach((card) => {
             const type = card.getAttribute('data-puzzle-type');
             setCardLockState(card, isPuzzleTypeUnlocked(type));
